@@ -50,6 +50,14 @@ def get_catalogue():
     )
 
 
+@router.get("/ml/catalogue/brands")
+def get_catalogue_brands():
+    """
+    Returns list of all supported smartphone brands.
+    """
+    return SmartphoneCatalogue.get_supported_brands()
+
+
 @router.get("/ml/catalogue/models")
 def get_catalogue_models(brand: str = Query(...)):
     """

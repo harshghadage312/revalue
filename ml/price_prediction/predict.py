@@ -53,6 +53,18 @@ def load_model() -> Tuple[Optional[Any], Optional[Dict[str, Any]]]:
         _MODEL_CACHE = joblib.load(model_path)
         logger.info(f"Loaded Random Forest model from {model_path} (Type: {type(_MODEL_CACHE)})")
 
+        # Backward compatibility for scikit-learn version differences on deserialized pipelines
+        if hasattr(_MODEL_CACHE, "named_steps") and "preprocessor" in _MODEL_CACHE.named_steps:
+            prep = _MODEL_CACHE.named_steps["preprocessor"]
+            for _, trans, _ in getattr(prep, "transformers_", []):
+                if hasattr(trans, "steps"):
+                    for _, sstep in trans.steps:
+                        if hasattr(sstep, "statistics_") and not hasattr(sstep, "_fill_dtype"):
+                            try:
+                                sstep._fill_dtype = sstep.statistics_.dtype
+                            except Exception:
+                                pass
+
         meta_path = os.path.join(os.path.dirname(model_path), "model_metadata.json")
         if os.path.exists(meta_path):
             with open(meta_path, "r", encoding="utf-8") as f:
