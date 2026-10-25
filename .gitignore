@@ -1,0 +1,79 @@
+# ==============================================================================
+# ReValue .gitignore
+# ==============================================================================
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node & Frontend Build
+node_modules/
+dist/
+frontend/dist/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & Sensitive Files
+# Strictly ignore .env and any variant containing credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+secrets.json
+
+# Local Uploads
+uploads/products/*
+!uploads/products/.gitkeep
+
+# Machine Learning Artifacts
+# Ignore intermediate/duplicate H5 checkpoints, backups, and temporary training logs
+ml/**/artifacts/*.h5
+ml/**/artifacts/*backup*
+ml/**/reports/
+!ml/**/artifacts/.gitkeep
+# Explicitly whitelist the verified production models and metadata
+!ml/price_prediction/artifacts/mindvalue_random_forest_model.pkl
+!ml/price_prediction/artifacts/model_metadata.json
+!ml/mobile_condition/artifacts/mobilenet_condition.keras
+!ml/mobile_condition/artifacts/labels.json
+!ml/mobile_condition/artifacts/condition_metadata.json
+
+# Operating System & IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

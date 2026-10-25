@@ -1,0 +1,33 @@
+{
+  "model_version": "mindvalue_rf_v2.0",
+  "model_name": "MindValue Random Forest Resale Price Regressor",
+  "algorithm": "RandomForestRegressor",
+  "n_estimators": 200,
+  "random_state": 42,
+  "features_count": 17,
+  "input_features": [
+    "Brand",
+    "Model",
+    "OS",
+    "RAM_GB",
+    "Storage_GB",
+    "Battery_mAh",
+    "Display_Size_Inches",
+    "Refresh_Rate_Hz",
+    "5G_Support",
+    "Original_Price_INR",
+    "Days_Used",
+    "Condition",
+    "Battery_Health_Percent",
+    "Screen_Crack",
+    "Scratches",
+    "Repair_History",
+    "Warranty_Available"
+  ],
+  "target": "Used_Resale_Price_INR",
+  "known_brands_count": 26,
+  "known_models_count": 754,
+  "currency": "INR",
+  "source": "MindValue production-trained model (mindvalue_random_forest_model.pkl)",
+  "integrated_at": "2026-10-25T11:00:00Z"
+}
