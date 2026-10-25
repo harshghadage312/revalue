@@ -5,7 +5,7 @@ import {
   Smartphone, MapPin, Box, BatteryMedium, Cpu, HardDrive,
   Info, Check, AlertTriangle
 } from 'lucide-react';
-import { api } from '../services/api';
+import { api, resolveMediaUrl } from '../services/api';
 import { Product, PriceEstimate, Auction, Offer } from '../types';
 import { useAuth } from '../context/AuthContext';
 
@@ -193,7 +193,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           <div className="aspect-[4/3] rounded-3xl bg-slate-100 border border-slate-200/90 overflow-hidden relative flex items-center justify-center">
             {product.images && product.images.length > 0 ? (
               <img
-                src={product.images[0]}
+                src={resolveMediaUrl(product.images[0])}
                 alt={product.title}
                 className="w-full h-full object-cover"
                 onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}

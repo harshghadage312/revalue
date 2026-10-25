@@ -1,6 +1,7 @@
 import React from 'react';
 import { Star, Heart, Gavel, Handshake, MapPin, Smartphone, Battery, Cpu } from 'lucide-react';
 import { Product } from '../types';
+import { resolveMediaUrl } from '../services/api';
 
 interface ProductCardProps {
   product: Product;
@@ -53,7 +54,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <div className="relative aspect-[4/3] bg-slate-100/90 overflow-hidden flex items-center justify-center border-b border-slate-100">
         {hasImage ? (
           <img
-            src={product.images[0]}
+            src={resolveMediaUrl(product.images[0])}
             alt={product.title}
             className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
             onError={(e) => {

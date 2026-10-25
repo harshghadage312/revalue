@@ -5,7 +5,57 @@ import {
   Review, Notification
 } from '../types';
 
-const API_BASE = '/api/v1';
+/**
+ * Normalizes and resolves the versioned API base URL (`.../api/v1`).
+ *
+ * Handles:
+ * - Empty string / undefined in local dev -> fallback to '/api/v1' (for Vite proxy)
+ * - Base host: 'https://revalue-api-qk4m.onrender.com' -> 'https://revalue-api-qk4m.onrender.com/api/v1'
+ * - Trailing slash: 'https://revalue-api-qk4m.onrender.com/' -> 'https://revalue-api-qk4m.onrender.com/api/v1'
+ * - Already versioned: 'https://revalue-api-qk4m.onrender.com/api/v1' -> 'https://revalue-api-qk4m.onrender.com/api/v1'
+ * - Partial api path: 'https://revalue-api-qk4m.onrender.com/api' -> 'https://revalue-api-qk4m.onrender.com/api/v1'
+ * - Production fallback: When VITE_API_BASE_URL is not supplied at build time in production mode,
+ *   defaults automatically to the deployed Render backend 'https://revalue-api-qk4m.onrender.com/api/v1'
+ */
+export function resolveApiBaseUrl(rawInput?: string): string {
+  const envVal = (rawInput !== undefined ? rawInput : (import.meta.env?.VITE_API_BASE_URL as string | undefined))?.trim();
+
+  if (!envVal) {
+    if (typeof import.meta !== 'undefined' && import.meta.env?.PROD) {
+      return 'https://revalue-api-qk4m.onrender.com/api/v1';
+    }
+    return '/api/v1';
+  }
+
+  // Remove trailing slashes
+  const trimmed = envVal.replace(/\/+$/, '');
+
+  if (trimmed.endsWith('/api/v1')) {
+    return trimmed;
+  }
+  if (trimmed.endsWith('/api')) {
+    return `${trimmed}/v1`;
+  }
+  return `${trimmed}/api/v1`;
+}
+
+export function buildApiUrl(endpoint: string, base?: string): string {
+  const root = base ?? resolveApiBaseUrl();
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `${root}${cleanEndpoint}`;
+}
+
+export function resolveMediaUrl(path?: string): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
+    return path;
+  }
+  const base = resolveApiBaseUrl().replace(/\/api\/v1\/?$/, '');
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${cleanPath}`;
+}
+
+export const API_BASE = resolveApiBaseUrl();
 
 class ApiClient {
   private getToken(): string | null {
@@ -26,7 +76,9 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE}${endpoint}`, {
+    const targetUrl = buildApiUrl(endpoint);
+
+    const response = await fetch(targetUrl, {
       ...options,
       headers,
     });
@@ -98,6 +150,13 @@ class ApiClient {
     });
   }
 
+  async updateProduct(id: string, body: any): Promise<Product> {
+    return this.request<Product>(`/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  }
+
   async uploadImage(file: File): Promise<{ image_url: string; filename: string }> {
     const formData = new FormData();
     formData.append('file', file);
@@ -108,7 +167,14 @@ class ApiClient {
   }
 
   // --- Open Negotiation ---
-  async createOffer(body: { product_id: string; amount: number; note?: string }): Promise<Offer> {
+  async createOffer(
+    productIdOrBody: string | { product_id: string; amount: number; note?: string },
+    amount?: number,
+    note?: string
+  ): Promise<Offer> {
+    const body = typeof productIdOrBody === 'string'
+      ? { product_id: productIdOrBody, amount: amount ?? 0, note }
+      : productIdOrBody;
     return this.request<Offer>('/offers', {
       method: 'POST',
       body: JSON.stringify(body),

@@ -194,3 +194,21 @@ def test_production_settings_validation():
             JWT_SECRET_KEY="revalue_local_development_secret_key_8f39b2e1a4c7d0e5f2a8b9c1d3e7f0a2"
         )
     assert "In production mode, JWT_SECRET_KEY must be a cryptographically strong unique secret" in str(exc.value)
+
+
+def test_auth_routes_presence_and_not_404():
+    """Verifies that all frontend authentication endpoints exist at /api/v1/ and do not return 404."""
+    # 1. Login route exists
+    res_login = client.post("/api/v1/auth/login", json={"email": "nonexistent@example.com", "password": "WrongPassword123!"})
+    assert res_login.status_code != 404
+    assert res_login.status_code in [400, 401, 422]
+
+    # 2. Register route exists
+    res_reg = client.post("/api/v1/auth/register", json={})
+    assert res_reg.status_code != 404
+    assert res_reg.status_code == 422 # Validation error for missing fields
+
+    # 3. Me route exists
+    res_me = client.get("/api/v1/auth/me")
+    assert res_me.status_code != 404
+    assert res_me.status_code == 401 # Unauthorized without token
