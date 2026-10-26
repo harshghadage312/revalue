@@ -95,52 +95,26 @@ def load_model() -> Tuple[Optional[Any], str, Optional[str]]:
         clean_rel = settings.MOBILE_CONDITION_MODEL_PATH.lstrip("./\\")
         candidates.append(os.path.abspath(os.path.join(repo_root, clean_rel)))
     candidates.extend([
-        os.path.join(artifacts_dir, "mobilenet_condition.keras"),
         os.path.join(artifacts_dir, "mobilenet_condition.h5"),
+        os.path.join(artifacts_dir, "mobilenet_condition.keras"),
         os.path.join(artifacts_dir, "phone_condition_model.h5"),
     ])
 
-    model_path = None
+    valid_candidates = []
     for cand in candidates:
         if cand and os.path.exists(cand):
-            model_path = os.path.abspath(cand)
-            break
+            abs_cand = os.path.abspath(cand)
+            if abs_cand not in valid_candidates:
+                valid_candidates.append(abs_cand)
 
-    if not model_path:
+    if not valid_candidates:
         _MODEL_STATUS = "MODEL_NOT_FOUND"
         _MODEL_MESSAGE = (
-            "MobileNetV2 condition model artifact ('mobilenet_condition.keras') was not found in artifacts directory. "
+            "MobileNetV2 condition model artifact ('mobilenet_condition.h5' or 'mobilenet_condition.keras') was not found in artifacts directory. "
             "To enable visual condition assessment, train on a 4-class dataset (Excellent, Good, Bad, Defective) "
             "using 'python -m ml.mobile_condition.train'."
         )
         return None, _MODEL_STATUS, _MODEL_MESSAGE
-
-    # Inspect H5 class count before attempting load to catch class mismatches immediately
-    if model_path.endswith(".h5"):
-        try:
-            import h5py
-            with h5py.File(model_path, "r") as h5f:
-                if "model_config" in h5f.attrs:
-                    conf_str = h5f.attrs["model_config"]
-                    if isinstance(conf_str, bytes):
-                        conf_str = conf_str.decode("utf-8")
-                    mconf = json.loads(conf_str)
-                    layers = mconf.get("config", {}).get("layers", [])
-                    for l in reversed(layers):
-                        if l.get("class_name") == "Dense":
-                            units = l.get("config", {}).get("units")
-                            if units and units != 4:
-                                _MODEL = None
-                                _MODEL_STATUS = "CLASS_MISMATCH"
-                                _MODEL_MESSAGE = (
-                                    f"Model checkpoint at '{os.path.basename(model_path)}' was trained on {units} classes (e.g. damaged/good), "
-                                    f"not the 4 required marketplace tiers (Excellent, Good, Bad, Defective). "
-                                    f"A retrained 4-class MobileNetV2 model is required."
-                                )
-                                return None, _MODEL_STATUS, _MODEL_MESSAGE
-                            break
-        except Exception as h5_err:
-            logger.debug(f"Could not inspect H5 config: {h5_err}")
 
     # Check TensorFlow availability before attempting inference load
     try:
@@ -158,9 +132,32 @@ def load_model() -> Tuple[Optional[Any], str, Optional[str]]:
         )
         return None, _MODEL_STATUS, _MODEL_MESSAGE
 
-    try:
-        model = None
-        direct_load_err = None
+    model = None
+    direct_load_err = None
+    loaded_path = None
+
+    for cand_path in valid_candidates:
+        # Inspect H5 class count before attempting load to catch class mismatches immediately
+        if cand_path.endswith(".h5"):
+            try:
+                import h5py
+                with h5py.File(cand_path, "r") as h5f:
+                    if "model_config" in h5f.attrs:
+                        conf_str = h5f.attrs["model_config"]
+                        if isinstance(conf_str, bytes):
+                            conf_str = conf_str.decode("utf-8")
+                        mconf = json.loads(conf_str)
+                        layers = mconf.get("config", {}).get("layers", [])
+                        for l in reversed(layers):
+                            if l.get("class_name") == "Dense":
+                                units = l.get("config", {}).get("units")
+                                if units and units != 4:
+                                    logger.warning(f"Checkpoint at {cand_path} has {units} classes (expected 4). Skipping.")
+                                    continue
+                                break
+            except Exception as h5_err:
+                logger.debug(f"Could not inspect H5 config: {h5_err}")
+
         # Try direct load with safe_mode=False and compile=False
         for kwargs in [
             {"compile": False, "safe_mode": False},
@@ -168,31 +165,36 @@ def load_model() -> Tuple[Optional[Any], str, Optional[str]]:
             {},
         ]:
             try:
-                model = tf.keras.models.load_model(model_path, **kwargs)
+                model = tf.keras.models.load_model(cand_path, **kwargs)
                 if model is not None:
+                    loaded_path = cand_path
                     break
             except Exception as e:
                 direct_load_err = e
-                logger.info(f"Direct Keras load with {kwargs} failed: {e}")
+                logger.info(f"Direct Keras load of {cand_path} with {kwargs} failed: {e}")
 
-        if model is None:
-            logger.error(f"Failed to load condition model from {model_path}: {direct_load_err}")
-            _MODEL = None
-            _MODEL_STATUS = "LOAD_ERROR"
-            _MODEL_MESSAGE = f"Error initializing model artifact: {str(direct_load_err)}"
-            return None, _MODEL_STATUS, _MODEL_MESSAGE
+        if model is not None:
+            break
 
+    if model is None:
+        logger.error(f"Failed to load condition model from candidates {valid_candidates}: {direct_load_err}")
+        _MODEL = None
+        _MODEL_STATUS = "LOAD_ERROR"
+        _MODEL_MESSAGE = f"Error initializing model artifact: {str(direct_load_err)}"
+        return None, _MODEL_STATUS, _MODEL_MESSAGE
+
+    try:
         # Validate output shape against the 4 required classes
         output_dim = model.output_shape[-1]
         if output_dim != 4:
             logger.warning(
-                f"Model at '{model_path}' has {output_dim} output classes, but ReValue requires 4 "
+                f"Model at '{loaded_path}' has {output_dim} output classes, but ReValue requires 4 "
                 f"marketplace condition tiers: {EXPECTED_CLASSES}. Refusing to invent mapping."
             )
             _MODEL = None
             _MODEL_STATUS = "CLASS_MISMATCH"
             _MODEL_MESSAGE = (
-                f"Model checkpoint at '{os.path.basename(model_path)}' was trained on {output_dim} classes (e.g. damaged/good), "
+                f"Model checkpoint at '{os.path.basename(loaded_path)}' was trained on {output_dim} classes (e.g. damaged/good), "
                 f"not the 4 required marketplace tiers (Excellent, Good, Bad, Defective). "
                 f"A retrained 4-class MobileNetV2 model is required."
             )
@@ -201,11 +203,11 @@ def load_model() -> Tuple[Optional[Any], str, Optional[str]]:
         _MODEL = model
         _MODEL_STATUS = "OK"
         _MODEL_MESSAGE = None
-        logger.info(f"Loaded valid 4-class MobileNetV2 condition classifier from {model_path}")
+        logger.info(f"Loaded valid 4-class MobileNetV2 condition classifier from {loaded_path}")
         return _MODEL, _MODEL_STATUS, None
 
     except Exception as e:
-        logger.error(f"Failed to load condition model from {model_path}: {e}")
+        logger.error(f"Failed to validate condition model from {loaded_path}: {e}")
         _MODEL = None
         _MODEL_STATUS = "LOAD_ERROR"
         _MODEL_MESSAGE = f"Error initializing model artifact: {str(e)}"

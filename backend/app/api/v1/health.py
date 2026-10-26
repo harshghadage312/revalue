@@ -12,10 +12,20 @@ router = APIRouter(tags=["Health & Diagnostics"])
 @router.get("/health")
 def health_check():
     """Liveness probe reporting that FastAPI service process is active."""
+    import sys
+    runtime_info = {"python": sys.version.split()[0]}
+    try:
+        import tensorflow as tf
+        runtime_info["tensorflow"] = tf.__version__
+        runtime_info["keras"] = getattr(tf.keras, "__version__", "builtin")
+    except Exception as e:
+        runtime_info["tensorflow_error"] = str(e)
+
     return {
         "status": "healthy",
         "app": settings.APP_NAME,
-        "version": "1.0.3",
+        "version": "1.0.4",
+        "runtime": runtime_info,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 

@@ -69,6 +69,7 @@ ml/**/reports/
 !ml/price_prediction/artifacts/mindvalue_random_forest_model.pkl
 !ml/price_prediction/artifacts/model_metadata.json
 !ml/mobile_condition/artifacts/mobilenet_condition.keras
+!ml/mobile_condition/artifacts/mobilenet_condition.h5
 !ml/mobile_condition/artifacts/labels.json
 !ml/mobile_condition/artifacts/condition_metadata.json
 
