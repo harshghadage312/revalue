@@ -45,8 +45,18 @@ def get_status() -> str:
     if importlib.util.find_spec("tensorflow") is None:
         return "tensorflow_not_installed"
 
-    model, status, _ = load_model()
-    return "available" if model is not None else status.lower()
+    # Fast check for model artifact existence without triggering a blocking model load
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+    artifacts_dir = os.path.join(base_dir, "artifacts")
+    candidates = [
+        os.path.join(artifacts_dir, "mobilenet_condition.keras"),
+        os.path.join(artifacts_dir, "mobilenet_condition.h5"),
+        os.path.join(artifacts_dir, "phone_condition_model.h5"),
+    ]
+    if not any(os.path.exists(c) for c in candidates):
+        return "model_not_found"
+
+    return "available"
 
 
 def load_model() -> Tuple[Optional[Any], str, Optional[str]]:
