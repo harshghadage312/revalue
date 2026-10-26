@@ -373,3 +373,68 @@ def test_mobile_condition_successful_inference_when_model_available(monkeypatch)
     assert data["class_probabilities"]["excellent"] == 0.85
     assert sum(data["class_probabilities"].values()) == pytest.approx(1.0, abs=1e-3)
     reset_model_cache()
+
+
+def test_mobile_condition_when_tensorflow_missing(monkeypatch):
+    """Verify clean handling and zero fabricated predictions when TensorFlow is absent."""
+    from ml.mobile_condition.predict import reset_model_cache
+    import ml.mobile_condition.predict as mc_predict
+
+    reset_model_cache()
+    monkeypatch.setattr(
+        mc_predict,
+        "load_model",
+        lambda: (
+            None,
+            "TENSORFLOW_NOT_INSTALLED",
+            "TensorFlow is not installed in the runtime environment. Install 'tensorflow-cpu>=2.15.0'.",
+        ),
+    )
+
+    img = Image.new("RGB", (224, 224), color="gray")
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    buf.seek(0)
+
+    res = client.post(
+        "/api/v1/ml/mobile-condition",
+        files={"file": ("test_phone.jpg", buf.getvalue(), "image/jpeg")},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["is_model_available"] is False
+    assert data["predicted_condition"] is None
+    assert data["confidence_score"] is None
+    assert data["status"] == "tensorflow_not_installed"
+    assert "tensorflow is not installed" in data["error_message"].lower()
+    reset_model_cache()
+
+
+def test_readiness_probe_status():
+    """Verify readiness probe checks actual model loading rather than mere file existence."""
+    from ml.mobile_condition.predict import reset_model_cache
+    reset_model_cache()
+
+    res = client.get("/api/v1/ready")
+    assert res.status_code == 200
+    data = res.json()
+    assert "ready" in data
+    assert "machine_learning" in data
+    assert data["machine_learning"]["random_forest_price_estimator"] == "available"
+    assert data["machine_learning"]["mobilenet_condition_classifier"] == "available"
+
+
+def test_readiness_probe_reflects_missing_tensorflow(monkeypatch):
+    """Verify readiness probe reports 'tensorflow_not_installed' when TensorFlow is absent."""
+    import ml.mobile_condition.predict as mc_predict
+    monkeypatch.setattr(
+        mc_predict,
+        "load_model",
+        lambda: (None, "TENSORFLOW_NOT_INSTALLED", "TensorFlow missing"),
+    )
+
+    res = client.get("/api/v1/ready")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["machine_learning"]["mobilenet_condition_classifier"] == "tensorflow_not_installed"
+    assert data["machine_learning"]["mobilenet_condition_classifier"] != "available"

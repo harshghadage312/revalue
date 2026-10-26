@@ -40,9 +40,12 @@ def load_model() -> Tuple[Optional[Any], str, Optional[str]]:
     if _MODEL_STATUS != "UNCHECKED":
         return _MODEL, _MODEL_STATUS, _MODEL_MESSAGE
 
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+    artifacts_dir = os.path.join(base_dir, "artifacts")
+
     labels_candidates = [
-        os.path.join(os.path.dirname(__file__), "artifacts", "labels.json"),
-        os.path.join(os.path.dirname(__file__), "labels.json"),
+        os.path.join(artifacts_dir, "labels.json"),
+        os.path.join(base_dir, "labels.json"),
     ]
     for lp in labels_candidates:
         if os.path.exists(lp):
@@ -53,20 +56,24 @@ def load_model() -> Tuple[Optional[Any], str, Optional[str]]:
             except Exception as e:
                 logger.warning(f"Could not parse {lp}: {e}")
 
-    # Search for model checkpoints
-    artifacts_dir = os.path.join(os.path.dirname(__file__), "artifacts")
-    candidates = [
-        settings.MOBILE_CONDITION_MODEL_PATH,
+    # Search for model checkpoints robustly across relative and absolute locations
+    repo_root = os.path.abspath(os.path.join(base_dir, "..", ".."))
+    candidates = []
+    if settings.MOBILE_CONDITION_MODEL_PATH:
+        candidates.append(settings.MOBILE_CONDITION_MODEL_PATH)
+        candidates.append(os.path.abspath(settings.MOBILE_CONDITION_MODEL_PATH))
+        clean_rel = settings.MOBILE_CONDITION_MODEL_PATH.lstrip("./\\")
+        candidates.append(os.path.abspath(os.path.join(repo_root, clean_rel)))
+    candidates.extend([
         os.path.join(artifacts_dir, "mobilenet_condition.keras"),
         os.path.join(artifacts_dir, "mobilenet_condition.h5"),
         os.path.join(artifacts_dir, "phone_condition_model.h5"),
-        r"C:\Users\Harshad\Downloads\phone_condition_model.h5",
-    ]
+    ])
 
     model_path = None
     for cand in candidates:
         if cand and os.path.exists(cand):
-            model_path = cand
+            model_path = os.path.abspath(cand)
             break
 
     if not model_path:
@@ -105,8 +112,23 @@ def load_model() -> Tuple[Optional[Any], str, Optional[str]]:
         except Exception as h5_err:
             logger.debug(f"Could not inspect H5 config: {h5_err}")
 
+    # Check TensorFlow availability before attempting inference load
     try:
         import tensorflow as tf
+    except (ImportError, ModuleNotFoundError) as imp_err:
+        logger.error(
+            f"TensorFlow is not installed in the Python runtime environment: {imp_err}. "
+            f"Please ensure 'tensorflow-cpu' is included in backend/requirements.txt."
+        )
+        _MODEL = None
+        _MODEL_STATUS = "TENSORFLOW_NOT_INSTALLED"
+        _MODEL_MESSAGE = (
+            "TensorFlow is not installed in the runtime environment. "
+            "Install 'tensorflow-cpu>=2.15.0' to enable visual condition classification."
+        )
+        return None, _MODEL_STATUS, _MODEL_MESSAGE
+
+    try:
         model = None
         # Try direct load
         try:

@@ -43,8 +43,9 @@ def readiness_check():
     price_model, _ = load_price_model()
     price_ml_status = "available" if price_model is not None else "unavailable"
 
-    mobilenet_path = settings.MOBILE_CONDITION_MODEL_PATH
-    mobilenet_status = "available" if os.path.exists(mobilenet_path) else "checkpoint_missing"
+    from ml.mobile_condition.predict import load_model as load_condition_model
+    condition_model, condition_status, _ = load_condition_model()
+    mobilenet_status = "available" if condition_model is not None else condition_status.lower()
 
     return {
         "ready": db_status == "operational",
