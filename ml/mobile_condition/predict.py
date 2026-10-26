@@ -29,6 +29,26 @@ def reset_model_cache():
     _MODEL_MESSAGE = None
 
 
+def get_status() -> str:
+    """
+    Returns condition classifier status for health/readiness checks without blocking.
+    Returns 'available', 'tensorflow_not_installed', 'model_not_found', 'load_error', etc.
+    """
+    global _MODEL, _MODEL_STATUS
+    if _MODEL is not None:
+        return "available"
+    if _MODEL_STATUS not in ["UNCHECKED", "OK"]:
+        return _MODEL_STATUS.lower()
+
+    # Fast check for TensorFlow availability before attempting load
+    import importlib.util
+    if importlib.util.find_spec("tensorflow") is None:
+        return "tensorflow_not_installed"
+
+    model, status, _ = load_model()
+    return "available" if model is not None else status.lower()
+
+
 def load_model() -> Tuple[Optional[Any], str, Optional[str]]:
     """
     Loads and caches the MobileNetV2 model.

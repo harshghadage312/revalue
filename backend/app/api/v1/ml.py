@@ -94,7 +94,8 @@ async def assess_mobile_condition(file: UploadFile = File(...)):
     contents = await file.read()
     if not contents or len(contents) == 0:
         raise ValidationError("Uploaded image file is empty.")
-    return predict_condition(contents)
+    import anyio
+    return await anyio.to_thread.run_sync(predict_condition, contents)
 
 
 @router.get("/recommendations", response_model=RecommendationResponse)

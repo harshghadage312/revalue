@@ -427,10 +427,11 @@ def test_readiness_probe_status():
 def test_readiness_probe_reflects_missing_tensorflow(monkeypatch):
     """Verify readiness probe reports 'tensorflow_not_installed' when TensorFlow is absent."""
     import ml.mobile_condition.predict as mc_predict
+    mc_predict.reset_model_cache()
     monkeypatch.setattr(
         mc_predict,
-        "load_model",
-        lambda: (None, "TENSORFLOW_NOT_INSTALLED", "TensorFlow missing"),
+        "get_status",
+        lambda: "tensorflow_not_installed",
     )
 
     res = client.get("/api/v1/ready")
@@ -438,3 +439,4 @@ def test_readiness_probe_reflects_missing_tensorflow(monkeypatch):
     data = res.json()
     assert data["machine_learning"]["mobilenet_condition_classifier"] == "tensorflow_not_installed"
     assert data["machine_learning"]["mobilenet_condition_classifier"] != "available"
+    mc_predict.reset_model_cache()

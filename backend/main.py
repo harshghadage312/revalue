@@ -96,6 +96,19 @@ async def startup_event():
     DatabaseManager.connect()
     init_indexes()
 
+    # Warm up ML models in a worker thread so inference and readiness checks are instant
+    import anyio
+    from ml.price_prediction.predict import load_model as load_price_model
+    from ml.mobile_condition.predict import load_model as load_condition_model
+    try:
+        await anyio.to_thread.run_sync(load_price_model)
+    except Exception as e:
+        logger.warning(f"Price model warmup notice: {e}")
+    try:
+        await anyio.to_thread.run_sync(load_condition_model)
+    except Exception as e:
+        logger.warning(f"Condition model warmup notice: {e}")
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
