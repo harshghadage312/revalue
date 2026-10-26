@@ -15,7 +15,7 @@ def health_check():
     return {
         "status": "healthy",
         "app": settings.APP_NAME,
-        "version": settings.APP_VERSION,
+        "version": "1.0.2",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 

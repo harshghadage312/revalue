@@ -150,40 +150,27 @@ def load_model() -> Tuple[Optional[Any], str, Optional[str]]:
 
     try:
         model = None
-        # Try direct load with compile=False for inference-only loading
-        try:
-            model = tf.keras.models.load_model(model_path, compile=False)
-        except Exception as load_err:
-            logger.info(f"Direct Keras load failed ({load_err}); attempting architecture reconstruction...")
-            from tensorflow.keras.applications import MobileNetV2
-            from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, Input
-            from tensorflow.keras.models import Model
-
-            # Check number of classes from H5 attributes if possible
-            num_classes = 4
+        direct_load_err = None
+        # Try direct load with safe_mode=False and compile=False
+        for kwargs in [
+            {"compile": False, "safe_mode": False},
+            {"compile": False},
+            {},
+        ]:
             try:
-                import h5py
-                with h5py.File(model_path, 'r') as h5f:
-                    if 'model_weights' in h5f:
-                        for k in h5f['model_weights'].keys():
-                            if 'dense' in k.lower():
-                                for subk in h5f['model_weights'][k].keys():
-                                    if 'bias' in subk:
-                                        shape = h5f['model_weights'][k][subk].shape
-                                        if len(shape) == 1:
-                                            num_classes = shape[0]
-            except Exception:
-                pass
+                model = tf.keras.models.load_model(model_path, **kwargs)
+                if model is not None:
+                    break
+            except Exception as e:
+                direct_load_err = e
+                logger.info(f"Direct Keras load with {kwargs} failed: {e}")
 
-            inputs = Input(shape=(224, 224, 3), name="input_image")
-            base = MobileNetV2(input_shape=(224, 224, 3), include_top=False, weights=None)
-            x = base(inputs, training=False)
-            x = GlobalAveragePooling2D(name="global_avg_pool")(x)
-            x = Dense(128, activation="relu", name="dense_features")(x)
-            x = Dropout(0.3, name="dropout")(x)
-            out = Dense(num_classes, activation="softmax", name="condition_output")(x)
-            model = Model(inputs=inputs, outputs=out, name="ReValue_MobileNetV2_Condition")
-            model.load_weights(model_path)
+        if model is None:
+            logger.error(f"Failed to load condition model from {model_path}: {direct_load_err}")
+            _MODEL = None
+            _MODEL_STATUS = "LOAD_ERROR"
+            _MODEL_MESSAGE = f"Error initializing model artifact: {str(direct_load_err)}"
+            return None, _MODEL_STATUS, _MODEL_MESSAGE
 
         # Validate output shape against the 4 required classes
         output_dim = model.output_shape[-1]
