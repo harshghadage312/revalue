@@ -245,10 +245,17 @@ def predict_condition(image_bytes: bytes) -> MobileConditionResponse:
 
     # 3. Model Inference
     try:
-        predictions = model.predict(input_tensor, verbose=0)[0]
+        if callable(model):
+            raw = model(input_tensor, training=False)
+            predictions = raw.numpy()[0] if hasattr(raw, "numpy") else raw[0]
+        else:
+            predictions = model.predict(input_tensor, verbose=0)[0]
     except Exception as e:
         logger.error(f"Error during MobileNetV2 inference: {e}")
         raise ValidationError(f"Model inference failed: {str(e)}")
+    finally:
+        import gc
+        gc.collect()
 
     best_idx = int(np.argmax(predictions))
     confidence = float(predictions[best_idx])

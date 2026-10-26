@@ -90,28 +90,11 @@ app.include_router(admin_router, prefix=api_v1_prefix)
 app.include_router(ml_router, prefix=api_v1_prefix)
 
 
-async def _warmup_ml_models():
-    """Non-blocking background model prewarming after server has bound its port."""
-    import asyncio
-    await asyncio.sleep(3)
-    try:
-        import anyio
-        from ml.price_prediction.predict import load_model as load_price_model
-        from ml.mobile_condition.predict import load_model as load_condition_model
-        await anyio.to_thread.run_sync(load_price_model)
-        await anyio.to_thread.run_sync(load_condition_model)
-        logger.info("ML models prewarmed successfully in background worker.")
-    except Exception as e:
-        logger.warning(f"ML models warmup notice: {e}")
-
-
 @app.on_event("startup")
 async def startup_event():
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION} ({settings.ENVIRONMENT} mode)")
     DatabaseManager.connect()
     init_indexes()
-    import asyncio
-    asyncio.create_task(_warmup_ml_models())
 
 
 @app.on_event("shutdown")
