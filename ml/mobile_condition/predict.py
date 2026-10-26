@@ -130,13 +130,13 @@ def load_model() -> Tuple[Optional[Any], str, Optional[str]]:
 
     try:
         model = None
-        # Try direct load
+        # Try direct load with compile=False for inference-only loading
         try:
-            model = tf.keras.models.load_model(model_path)
+            model = tf.keras.models.load_model(model_path, compile=False)
         except Exception as load_err:
             logger.info(f"Direct Keras load failed ({load_err}); attempting architecture reconstruction...")
             from tensorflow.keras.applications import MobileNetV2
-            from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
+            from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, Input
             from tensorflow.keras.models import Model
 
             # Check number of classes from H5 attributes if possible
@@ -155,12 +155,14 @@ def load_model() -> Tuple[Optional[Any], str, Optional[str]]:
             except Exception:
                 pass
 
+            inputs = Input(shape=(224, 224, 3), name="input_image")
             base = MobileNetV2(input_shape=(224, 224, 3), include_top=False, weights=None)
-            x = GlobalAveragePooling2D()(base.output)
-            x = Dense(128, activation="relu")(x)
-            x = Dropout(0.3)(x)
-            out = Dense(num_classes, activation="softmax")(x)
-            model = Model(inputs=base.input, outputs=out)
+            x = base(inputs, training=False)
+            x = GlobalAveragePooling2D(name="global_avg_pool")(x)
+            x = Dense(128, activation="relu", name="dense_features")(x)
+            x = Dropout(0.3, name="dropout")(x)
+            out = Dense(num_classes, activation="softmax", name="condition_output")(x)
+            model = Model(inputs=inputs, outputs=out, name="ReValue_MobileNetV2_Condition")
             model.load_weights(model_path)
 
         # Validate output shape against the 4 required classes
