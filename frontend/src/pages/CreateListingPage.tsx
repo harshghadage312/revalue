@@ -693,6 +693,10 @@ export const CreateListingPage: React.FC<CreateListingPageProps> = ({
                 <p className="text-xs text-slate-300 leading-relaxed pt-1 border-t border-slate-800">
                   {priceEstimate.explanation}
                 </p>
+
+                <p className="text-[11px] text-emerald-300/90 leading-relaxed bg-emerald-950/40 p-2 rounded-lg border border-emerald-800/50">
+                  Note: This estimate serves as an algorithmic secondary market benchmark based on device condition and specifications. It is not a guaranteed sale price; you may apply it or customize your own asking price.
+                </p>
               </div>
 
               <div className="p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-3 text-xs">

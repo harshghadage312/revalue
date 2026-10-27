@@ -615,7 +615,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               </div>
               <div className="flex items-center gap-1 text-slate-500 text-[11px]">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Escrow Protected</span>
+                <span>Buyer Payout Protection</span>
               </div>
             </div>
           </div>

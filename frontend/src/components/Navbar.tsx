@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
   Search, Heart, Bell, PlusCircle,
   LogOut, ChevronDown, Package, Handshake,
-  Menu, X, Smartphone, ArrowRight, ShieldCheck, Sparkles, User as UserIcon
+  Menu, X, ArrowRight, ShieldCheck, Sparkles, User as UserIcon
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Notification } from '../types';
+import { BrandLogo } from './BrandLogo';
 
 interface NavbarProps {
   onNavigate: (page: string, params?: any) => void;
@@ -82,20 +83,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
 
-            <div
+            <button
+              type="button"
               onClick={() => { onNavigate('landing'); setMobileMenuOpen(false); }}
-              className="flex items-center gap-2 cursor-pointer select-none"
+              className="flex items-center cursor-pointer select-none focus:outline-none"
+              aria-label="ReValue Home"
             >
-              <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-2xs">
-                <Smartphone className="w-4 h-4 text-white" />
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900">
-                  ReValue
-                </span>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              </div>
-            </div>
+              <BrandLogo size="md" />
+            </button>
           </div>
 
           {/* Desktop Search Bar (Center) */}

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Smartphone, ChevronRight, ShieldCheck } from 'lucide-react';
+import { ChevronRight, ShieldCheck } from 'lucide-react';
+import { BrandLogo } from './BrandLogo';
 
 interface FooterProps {
   onNavigate?: (page: string, params?: any) => void;
@@ -34,14 +35,15 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenValuator }) =>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1 space-y-2.5">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center text-white">
-                <Smartphone className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-base font-extrabold text-white tracking-tight">ReValue</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => handleNav('landing')}
+              className="text-left focus:outline-none"
+            >
+              <BrandLogo size="md" variant="dark" showTagline={true} />
+            </button>
             <p className="text-slate-400 text-xs leading-relaxed max-w-xs">
-              A trusted marketplace to buy and sell pre-owned smartphones with transparent conditions and fair resale estimates.
+              Every phone has more value. A straightforward marketplace to buy and sell pre-owned smartphones with clear condition checks and fair resale estimates.
             </p>
           </div>
 
@@ -148,7 +150,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenValuator }) =>
                 </button>
               </li>
               <li>
-                <span className="text-slate-500">Escrow Payment Protection</span>
+                <span className="text-slate-500">Order Delivery & Payout Protection</span>
               </li>
             </ul>
           </div>
@@ -161,7 +163,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenValuator }) =>
           </div>
           <div className="flex items-center gap-1.5 text-slate-400">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Escrow Protected Settlements • Indian Rupee (₹)</span>
+            <span>Fulfillment Tracking & Buyer Payout Protection • Indian Rupee (₹)</span>
           </div>
         </div>
       </div>

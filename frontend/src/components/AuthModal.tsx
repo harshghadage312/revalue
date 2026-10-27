@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Lock, Mail, User, Smartphone, AlertCircle } from 'lucide-react';
+import { X, Lock, Mail, User, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types';
+import { BrandLogo } from './BrandLogo';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -69,8 +70,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Modal Header */}
         <div className="text-center mb-4">
-          <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white mx-auto flex items-center justify-center mb-2">
-            <Smartphone className="w-4 h-4" />
+          <div className="flex justify-center mb-2">
+            <BrandLogo size="sm" />
           </div>
           <h2 className="text-base font-extrabold text-slate-900">
             {isLogin ? 'Sign in to ReValue' : 'Create an Account'}
