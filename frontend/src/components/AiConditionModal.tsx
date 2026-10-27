@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Camera, ShieldAlert, CheckCircle, AlertTriangle, Sparkles, Upload } from 'lucide-react';
+import { X, Camera, ShieldAlert, CheckCircle, AlertTriangle, Sparkles, Upload, CheckCircle2 } from 'lucide-react';
 import { api } from '../services/api';
 import { MobileCondition } from '../types';
+import { getConditionMeta } from '../utils/formatters';
 
 interface AiConditionModalProps {
   isOpen: boolean;
@@ -46,9 +47,16 @@ export const AiConditionModal: React.FC<AiConditionModalProps> = ({
     }
   };
 
+  const handleApply = (conditionKey: string) => {
+    if (onConditionConfirmed) {
+      onConditionConfirmed(conditionKey);
+    }
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-xl border border-slate-200 relative animate-in fade-in zoom-in-95">
+      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-xl border border-slate-200 relative animate-in fade-in zoom-in-95 my-8">
         <button
           onClick={onClose}
           className="absolute top-5 right-5 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
@@ -63,16 +71,16 @@ export const AiConditionModal: React.FC<AiConditionModalProps> = ({
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-900">
-              MobileNetV2 Visual Condition AI
+              Phone Condition Check
             </h2>
             <span className="text-[10px] text-slate-500 block uppercase font-semibold tracking-wider">
-              Objective Cosmetic Wear Analysis
+              Instant Exterior Cosmetic Analysis
             </span>
           </div>
         </div>
 
         <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-          Upload a clear photograph of the smartphone to assess exterior physical wear (scratches, glass integrity, casing scuffs).
+          Upload a clear photograph of your smartphone to automatically check exterior physical condition (glass integrity, scratches, and casing scuffs).
         </p>
 
         {error && (
@@ -98,113 +106,97 @@ export const AiConditionModal: React.FC<AiConditionModalProps> = ({
             ) : (
               <div className="text-center py-2">
                 <Upload className="w-7 h-7 text-slate-400 mx-auto mb-1.5" />
-                <span className="text-xs font-bold text-slate-800 block">Click to select phone photo</span>
-                <span className="text-[11px] text-slate-400 mt-0.5 block">JPEG, PNG or WebP up to 5MB</span>
+                <span className="text-xs font-bold text-slate-700 block">Choose device photo</span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">JPEG, PNG, or WebP up to 5MB</span>
               </div>
             )}
           </label>
         </div>
 
-        <button
-          onClick={handleAnalyze}
-          disabled={!selectedFile || loading}
-          className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-xs flex items-center justify-center gap-2 text-xs transition-all disabled:opacity-40"
-        >
-          {loading ? (
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <>
-              <Sparkles className="w-4 h-4 text-emerald-400" />
-              <span>Assess Visual Condition</span>
-            </>
-          )}
-        </button>
+        {selectedFile && !result && (
+          <button
+            onClick={handleAnalyze}
+            disabled={loading}
+            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Checking device condition...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Run Condition Check</span>
+              </>
+            )}
+          </button>
+        )}
 
         {/* Result Card */}
         {result && (
-          <div className="mt-5">
-            {result.is_model_available && result.predicted_condition ? (
-              /* Successful Inference Card */
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
-                  <div>
-                    <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 block">
-                      Assessed Cosmetic Tier
-                    </span>
-                    {result.confidence_score !== undefined && result.confidence_score !== null && (
-                      <span className="text-xs text-slate-600 font-semibold">
-                        {Math.round(result.confidence_score * 100)}% Confidence
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs font-extrabold uppercase px-3 py-1 rounded-lg bg-emerald-600 text-white shadow-xs">
-                    {result.predicted_condition}
+          <div className="space-y-4 pt-2">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Assessed Condition
+                  </span>
+                  <span className="text-base font-extrabold text-slate-900 mt-0.5 block">
+                    {getConditionMeta(result.predicted_condition).label}
                   </span>
                 </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Confidence
+                  </span>
+                  <span className="text-sm font-extrabold text-emerald-700">
+                    {Math.round(result.confidence_score * 100)}%
+                  </span>
+                </div>
+              </div>
 
-                {/* Class Probabilities Breakdown */}
-                {result.class_probabilities && Object.keys(result.class_probabilities).length > 0 && (
-                  <div className="space-y-1.5 pt-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Model Class Probabilities Breakdown
-                    </span>
-                    {Object.entries(result.class_probabilities).map(([cls, prob]) => (
-                      <div key={cls} className="flex items-center justify-between text-xs">
-                        <span className="capitalize text-slate-700 font-medium">{cls}</span>
-                        <div className="flex items-center gap-2">
-                          <div className="w-28 bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className="bg-emerald-600 h-1.5 rounded-full"
-                              style={{ width: `${Math.round(prob * 100)}%` }}
-                            />
-                          </div>
-                          <span className="font-semibold text-slate-900 w-8 text-right text-[11px]">
-                            {Math.round(prob * 100)}%
-                          </span>
+              {/* Class probabilities */}
+              {result.class_probabilities && (
+                <div className="space-y-1.5 pt-2 border-t border-slate-200/60 text-[11px]">
+                  {Object.entries(result.class_probabilities).map(([cKey, prob]) => {
+                    const meta = getConditionMeta(cKey);
+                    const pct = Math.round((prob as number) * 100);
+                    return (
+                      <div key={cKey} className="space-y-0.5">
+                        <div className="flex justify-between text-slate-600">
+                          <span>{meta.label}</span>
+                          <span className="font-semibold text-slate-800">{pct}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${cKey === result.predicted_condition ? 'bg-emerald-600' : 'bg-slate-400'}`}
+                            style={{ width: `${pct}%` }}
+                          />
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Physical Inspection Disclaimer */}
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] leading-relaxed flex items-start gap-2">
-                  <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <span>{result.disclaimer}</span>
+                    );
+                  })}
                 </div>
+              )}
+            </div>
 
-                {onConditionConfirmed && (
-                  <button
-                    onClick={() => {
-                      onConditionConfirmed(result.predicted_condition!);
-                      onClose();
-                    }}
-                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs"
-                  >
-                    Apply Assessed Condition ({result.predicted_condition}) to Listing
-                  </button>
-                )}
-              </div>
-            ) : (
-              /* Honest Model Unavailable Card */
-              <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-2">
-                <div className="flex items-start gap-2.5">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider">
-                      Visual Condition AI Model Unavailable
-                    </h4>
-                    <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-                      {result.error_message || 'A trained 4-class MobileNetV2 model artifact has not been deployed to the server.'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-[11px] text-slate-600 pt-1">
-                  Please manually select the condition tier (Excellent, Good, Bad, Defective) in the listing form.
-                </div>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => handleApply(result.predicted_condition)}
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
+              >
+                Apply Assessed Condition
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
       </div>

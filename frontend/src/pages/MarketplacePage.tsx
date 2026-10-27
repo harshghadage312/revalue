@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import {
   Search, Filter, SlidersHorizontal, ArrowUpDown, Smartphone,
-  RefreshCw, X, ChevronDown, Check, Sparkles, MapPin
+  RefreshCw, X, ChevronDown, Check, Sparkles, MapPin, ArrowRight
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Product, ProductListResponse } from '../types';
 import { ProductCard } from '../components/ProductCard';
+import { getConditionMeta } from '../utils/formatters';
 
 interface MarketplacePageProps {
   onNavigate: (page: string, params?: any) => void;
   initialQuery?: string;
   initialBrand?: string;
+  initialCondition?: string;
 }
 
 const BRANDS = [
@@ -29,6 +31,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
   onNavigate,
   initialQuery = '',
   initialBrand = '',
+  initialCondition = '',
 }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
@@ -39,7 +42,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
   // Filters state
   const [query, setQuery] = useState(initialQuery);
   const [brand, setBrand] = useState<string>(initialBrand);
-  const [condition, setCondition] = useState<string>('');
+  const [condition, setCondition] = useState<string>(initialCondition);
   const [sellingMethod, setSellingMethod] = useState<string>('');
   const [minPrice, setMinPrice] = useState<string>('');
   const [maxPrice, setMaxPrice] = useState<string>('');
@@ -48,6 +51,13 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
 
   // Mobile drawer
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+
+  // Sync props if navigation triggers a parameter change
+  useEffect(() => {
+    if (initialQuery !== undefined) setQuery(initialQuery);
+    if (initialBrand !== undefined) setBrand(initialBrand);
+    if (initialCondition !== undefined) setCondition(initialCondition);
+  }, [initialQuery, initialBrand, initialCondition]);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -119,10 +129,10 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Verified Smartphone Marketplace
+            Smartphone Marketplace
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Showing <span className="font-semibold text-slate-800">{total}</span> secondary devices with verified hardware and condition specs.
+            Showing <span className="font-semibold text-slate-800">{total}</span> pre-owned smartphones with verified specifications.
           </p>
         </div>
 
@@ -173,7 +183,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
               sellingMethod === 'negotiation' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Open Negotiation
+            Direct Purchase & Offers
           </button>
           <button
             onClick={() => { setSellingMethod('bidding'); setPage(1); }}
@@ -181,7 +191,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
               sellingMethod === 'bidding' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Sealed Bidding Auctions
+            Sealed Auctions
           </button>
         </div>
 
@@ -213,8 +223,8 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
           )}
 
           {condition && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 text-xs font-semibold capitalize">
-              Condition: {condition}
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 text-xs font-semibold">
+              Condition: {getConditionMeta(condition).label}
               <button onClick={() => { setCondition(''); setPage(1); }}><X className="w-3 h-3 hover:text-rose-500" /></button>
             </span>
           )}
@@ -266,7 +276,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
           {/* Brand Filter */}
           <div>
             <label className="block text-xs font-bold text-slate-800 mb-2">Smartphone Brand</label>
-            <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
+            <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
               {BRANDS.map((b) => (
                 <label
                   key={b}
@@ -291,17 +301,17 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
 
           {/* Condition Filter */}
           <div>
-            <label className="block text-xs font-bold text-slate-800 mb-2">Cosmetic Condition</label>
+            <label className="block text-xs font-bold text-slate-800 mb-2">Device Condition</label>
             <select
               value={condition}
               onChange={(e) => { setCondition(e.target.value); setPage(1); }}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-emerald-600 outline-none"
             >
               <option value="">Any Condition</option>
-              <option value="excellent">Mint / Like New (Flawless)</option>
-              <option value="good">Good (Light Hairlines)</option>
-              <option value="bad">Heavy Wear (Deep Scuffs)</option>
-              <option value="defective">Defective / Functional Fault</option>
+              <option value="excellent">Like New (Mint Condition)</option>
+              <option value="good">Good Condition (Light Wear)</option>
+              <option value="bad">Noticeable Wear (Scratches/Dents)</option>
+              <option value="defective">Heavily Damaged (For Parts)</option>
             </select>
           </div>
 
@@ -342,13 +352,13 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
               onClick={() => { setPage(1); fetchProducts(); }}
               className="w-full mt-2 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors"
             >
-              Apply Custom Range
+              Apply Price Range
             </button>
           </div>
 
           {/* City / Location */}
           <div>
-            <label className="block text-xs font-bold text-slate-800 mb-1.5">Location City</label>
+            <label className="block text-xs font-bold text-slate-800 mb-1.5">City Location</label>
             <div className="relative">
               <input
                 type="text"
@@ -402,7 +412,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                   <button
                     disabled={page <= 1}
                     onClick={() => setPage(p => Math.max(1, p - 1))}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 disabled:opacity-40 hover:bg-slate-50"
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 disabled:opacity-40 hover:bg-slate-50 transition-colors"
                   >
                     Previous
                   </button>
@@ -412,7 +422,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                   <button
                     disabled={page >= totalPages}
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 disabled:opacity-40 hover:bg-slate-50"
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 disabled:opacity-40 hover:bg-slate-50 transition-colors"
                   >
                     Next
                   </button>

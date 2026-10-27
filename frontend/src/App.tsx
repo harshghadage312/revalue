@@ -65,6 +65,8 @@ export const AppContent: React.FC = () => {
           <MarketplacePage
             onNavigate={navigate}
             initialQuery={pageParams.query || ''}
+            initialBrand={pageParams.brand || ''}
+            initialCondition={pageParams.condition || ''}
           />
         )}
 
@@ -124,7 +126,10 @@ export const AppContent: React.FC = () => {
         )}
       </main>
 
-      <Footer />
+      <Footer
+        onNavigate={navigate}
+        onOpenValuator={() => setShowValuator(true)}
+      />
 
       {/* Global Modals */}
       <AiPriceValuatorModal
