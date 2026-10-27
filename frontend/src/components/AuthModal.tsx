@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Lock, Mail, User, ShieldCheck, ArrowRight, AlertCircle, Smartphone } from 'lucide-react';
+import { X, Lock, Mail, User, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types';
+import { BrandLogo } from './BrandLogo';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -57,38 +58,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-xl border border-slate-200 relative animate-in fade-in zoom-in-95 my-8">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl max-w-sm w-full p-5 sm:p-6 shadow-xl border border-slate-200 relative animate-in fade-in zoom-in-95 my-6 text-xs">
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
           aria-label="Close"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
         {/* Modal Header */}
-        <div className="text-center mb-5">
-          <div className="w-10 h-10 rounded-xl bg-slate-900 text-emerald-400 mx-auto flex items-center justify-center mb-2.5">
-            <Smartphone className="w-5 h-5 text-emerald-400" />
+        <div className="text-center mb-4">
+          <div className="flex justify-center mb-2">
+            <BrandLogo size="sm" />
           </div>
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-            {isLogin ? 'Welcome Back to ReValue' : 'Create Your ReValue Account'}
+          <h2 className="text-base font-extrabold text-slate-900">
+            {isLogin ? 'Sign in to ReValue' : 'Create an Account'}
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-slate-500 mt-0.5 text-[11px]">
             {isLogin
-              ? 'Access authenticated smartphone listings, sealed auctions, and private negotiations.'
-              : 'Join the verified marketplace to buy and sell pre-owned phones safely.'}
+              ? 'Access saved phones, purchases, and offers.'
+              : 'Join to buy and sell pre-owned phones.'}
           </p>
         </div>
 
         {/* Segmented Mode Switch */}
-        <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
+        <div className="flex bg-slate-100 p-0.5 rounded-lg mb-3">
           <button
             type="button"
             onClick={() => { setIsLogin(true); setError(null); }}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              isLogin ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${
+              isLogin ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Sign In
@@ -96,41 +97,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <button
             type="button"
             onClick={() => { setIsLogin(false); setError(null); }}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              !isLogin ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${
+              !isLogin ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Create Account
+            Register
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+          <div className="mb-3 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2 text-xs">
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-2.5">
           {!isLogin && (
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
+              <label className="block font-bold text-slate-700 mb-1">Full Name</label>
               <div className="relative">
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Arjun Patel"
+                  placeholder="e.g. Rahul Sharma"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-emerald-600 outline-none"
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:bg-white focus:border-emerald-600 outline-none"
                 />
-                <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <User className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
               </div>
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+            <label className="block font-bold text-slate-700 mb-1">Email</label>
             <div className="relative">
               <input
                 type="email"
@@ -138,39 +139,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-emerald-600 outline-none"
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:bg-white focus:border-emerald-600 outline-none"
               />
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Password</label>
+            <label className="block font-bold text-slate-700 mb-1">Password</label>
             <div className="relative">
               <input
                 type="password"
                 required
-                minLength={8}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-emerald-600 outline-none"
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:bg-white focus:border-emerald-600 outline-none"
               />
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
             </div>
           </div>
 
           {!isLogin && (
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Account Role</label>
+              <label className="block font-bold text-slate-700 mb-1">Primary Role</label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setRole('buyer')}
-                  className={`py-2 text-xs font-bold rounded-xl border transition-all ${
+                  className={`py-1.5 rounded-lg border font-semibold transition-colors ${
                     role === 'buyer'
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      ? 'bg-emerald-50 text-emerald-900 border-emerald-600 font-bold'
+                      : 'bg-slate-50 text-slate-600 border-slate-200'
                   }`}
                 >
                   Buyer
@@ -178,10 +178,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setRole('seller')}
-                  className={`py-2 text-xs font-bold rounded-xl border transition-all ${
+                  className={`py-1.5 rounded-lg border font-semibold transition-colors ${
                     role === 'seller'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      ? 'bg-emerald-50 text-emerald-900 border-emerald-600 font-bold'
+                      : 'bg-slate-50 text-slate-600 border-slate-200'
                   }`}
                 >
                   Seller
@@ -193,38 +193,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-colors shadow-xs disabled:opacity-50"
+            className="w-full mt-1 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-xs transition-colors disabled:opacity-50"
           >
-            {loading ? 'Processing...' : (isLogin ? 'Sign In to Account' : 'Create Free Account')}
+            {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
         </form>
 
-        {/* Demo Test Personas Bar */}
-        <div className="mt-5 pt-4 border-t border-slate-100 text-center">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
-            One-Click Test Personas
+        {/* Demo Personas */}
+        <div className="mt-4 pt-3 border-t border-slate-100 text-center">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+            Quick Demo Personas
           </span>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1.5">
             <button
               type="button"
               onClick={() => handleQuick('seller')}
-              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/60 transition-colors"
+              className="py-1 rounded bg-slate-100 hover:bg-slate-200 text-[10.5px] font-semibold text-slate-700"
             >
-              Seller Demo
+              Seller
             </button>
             <button
               type="button"
               onClick={() => handleQuick('buyer')}
-              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-slate-100 hover:bg-slate-200/80 text-slate-800 border border-slate-200 transition-colors"
+              className="py-1 rounded bg-slate-100 hover:bg-slate-200 text-[10.5px] font-semibold text-slate-700"
             >
-              Buyer Demo
+              Buyer
             </button>
             <button
               type="button"
               onClick={() => handleQuick('admin')}
-              className="py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/60 transition-colors"
+              className="py-1 rounded bg-slate-100 hover:bg-slate-200 text-[10.5px] font-semibold text-slate-700"
             >
-              Admin Demo
+              Admin
             </button>
           </div>
         </div>
