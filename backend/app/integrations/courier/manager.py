@@ -60,11 +60,17 @@ def get_courier_provider() -> CourierProviderInterface:
         adapter = ShiprocketAdapter()
         if adapter.is_configured():
             return adapter
-        # Fall back to sandbox with log notice if credentials missing in non-production
+        # In non-production, fall back to sandbox if credentials missing, logging a warning
         if settings.ENVIRONMENT != "production":
+            logger.warning("Shiprocket credentials not configured; using sandbox courier adapter for development.")
             return _singleton_mock_courier
+        # In production, never silently fall back to mock
+        logger.error("Shiprocket credentials not configured in production environment.")
         return adapter
     elif provider_name == "sandbox":
+        if settings.ENVIRONMENT == "production":
+            logger.error("Sandbox courier provider is strictly disallowed in production environment.")
+            return DisabledCourierProvider()
         return _singleton_mock_courier
     else:
         return DisabledCourierProvider()

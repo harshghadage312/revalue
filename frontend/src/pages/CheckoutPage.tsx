@@ -17,48 +17,6 @@ interface CheckoutPageProps {
   onOpenAuth: () => void;
 }
 
-const FALLBACK_QUOTES: ShippingRateQuote[] = [
-  {
-    quote_id: 'quote_bluedart_express',
-    courier_id: 'bluedart_air',
-    courier_name: 'Blue Dart Air Express',
-    rate: 150,
-    cod_charges: 50,
-    insurance_fee: 149,
-    estimated_delivery_days: 1,
-    pickup_pincode: '400001',
-    delivery_pincode: '560034',
-    provider: 'Shiprocket',
-    expires_at: new Date(Date.now() + 1800000).toISOString(),
-  },
-  {
-    quote_id: 'quote_delhivery_surface',
-    courier_id: 'delhivery_surface',
-    courier_name: 'Delhivery Surface Smart',
-    rate: 80,
-    cod_charges: 50,
-    insurance_fee: 149,
-    estimated_delivery_days: 3,
-    pickup_pincode: '400001',
-    delivery_pincode: '560034',
-    provider: 'Shiprocket',
-    expires_at: new Date(Date.now() + 1800000).toISOString(),
-  },
-  {
-    quote_id: 'quote_ecom_secure',
-    courier_id: 'ecom_express',
-    courier_name: 'Ecom Express Secure',
-    rate: 95,
-    cod_charges: 50,
-    insurance_fee: 149,
-    estimated_delivery_days: 2,
-    pickup_pincode: '400001',
-    delivery_pincode: '560034',
-    provider: 'Shiprocket',
-    expires_at: new Date(Date.now() + 1800000).toISOString(),
-  },
-];
-
 export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   productId,
   source = 'buy_now',
@@ -82,18 +40,17 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [postalCode, setPostalCode] = useState('560034');
 
   // Logistics & delivery selection
-  const [quotes, setQuotes] = useState<ShippingRateQuote[]>(FALLBACK_QUOTES);
-  const [selectedQuote, setSelectedQuote] = useState<ShippingRateQuote | null>(FALLBACK_QUOTES[0]);
-  const [isServiceable, setIsServiceable] = useState<boolean | null>(true);
+  const [quotes, setQuotes] = useState<ShippingRateQuote[]>([]);
+  const [selectedQuote, setSelectedQuote] = useState<ShippingRateQuote | null>(null);
+  const [isServiceable, setIsServiceable] = useState<boolean | null>(null);
   const [quotingLoading, setQuotingLoading] = useState(false);
-  const [quoteMessage, setQuoteMessage] = useState<string | null>('Courier serviceability verified for 560034');
+  const [quoteMessage, setQuoteMessage] = useState<string | null>(null);
 
   // Payment method & options
   const [paymentMethod, setPaymentMethod] = useState<'prepaid' | 'cod'>('prepaid');
   const [optInInsurance, setOptInInsurance] = useState(true);
 
-  const [loading, setLoading] = useState(false);
-  const [previewMode, setPreviewMode] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +73,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
   // Fetch live shipping quotes whenever PIN code, COD, or insurance changes
   const fetchQuotes = async (pincode: string, isCod: boolean, insurance: boolean) => {
-    if (pincode.length !== 6 || !/^\d{6}$/.test(pincode)) {
+    if (!productId || pincode.length !== 6 || !/^\d{6}$/.test(pincode)) {
       setQuotes([]);
       setIsServiceable(null);
       return;
@@ -124,26 +81,20 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     setQuotingLoading(true);
     setQuoteMessage(null);
     try {
-      if (productId) {
-        const res = await api.getShippingQuotes(productId, pincode, isCod, insurance);
-        setIsServiceable(res.is_serviceable);
-        setQuotes(res.quotes || []);
-        setQuoteMessage(res.message || null);
-        if (res.quotes && res.quotes.length > 0) {
-          setSelectedQuote(res.quotes[0]);
-          return;
-        }
+      const res = await api.getShippingQuotes(productId, pincode, isCod, insurance);
+      setIsServiceable(res.is_serviceable);
+      setQuotes(res.quotes || []);
+      setQuoteMessage(res.message || null);
+      if (res.quotes && res.quotes.length > 0) {
+        setSelectedQuote(res.quotes[0]);
+      } else {
+        setSelectedQuote(null);
       }
-      // Demo quotes when standalone or offline
-      setIsServiceable(true);
-      setQuotes(FALLBACK_QUOTES);
-      setSelectedQuote(FALLBACK_QUOTES[0]);
-      setQuoteMessage('Courier serviceability verified for ' + pincode);
     } catch (err: any) {
-      setIsServiceable(true);
-      setQuotes(FALLBACK_QUOTES);
-      setSelectedQuote(FALLBACK_QUOTES[0]);
-      setQuoteMessage('Verified via Indian Logistics Network (Express & Surface)');
+      setIsServiceable(false);
+      setQuoteMessage(err.message || 'Unable to retrieve courier rates for this PIN code.');
+      setQuotes([]);
+      setSelectedQuote(null);
     } finally {
       setQuotingLoading(false);
     }
@@ -155,7 +106,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     }
   }, [productId, postalCode, paymentMethod, optInInsurance]);
 
-  if (!isAuthenticated && !previewMode) {
+  if (!isAuthenticated) {
     return (
       <div className="max-w-md mx-auto py-24 text-center px-4">
         <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-100">
@@ -165,20 +116,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         <p className="text-sm text-slate-500 mb-6 leading-relaxed">
           Log in to your ReValue account to secure this smartphone with escrow payment protection and courier tracking.
         </p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            onClick={onOpenAuth}
-            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm transition-all shadow-sm shadow-emerald-700/20"
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => setPreviewMode(true)}
-            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl text-sm transition-all"
-          >
-            Preview Delivery & Checkout
-          </button>
-        </div>
+        <button
+          onClick={onOpenAuth}
+          className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm transition-all shadow-sm shadow-emerald-700/20"
+        >
+          Sign In
+        </button>
       </div>
     );
   }
@@ -243,7 +186,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // Price calculations
   const basePrice = activeOrder
     ? (activeOrder.item_price ?? activeOrder.transaction_price)
-    : (product?.asking_price || 64999);
+    : (product?.asking_price || 0);
 
   const shippingFee = activeOrder
     ? (activeOrder.shipping_fee ?? 0)
@@ -601,7 +544,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
             <div>
               <div className="font-bold text-base text-slate-900">
-                {activeOrder ? activeOrder.product_title : (product?.title || 'Apple iPhone 15 Pro 128GB (Natural Titanium)')}
+                {activeOrder ? activeOrder.product_title : (product?.title || 'Pre-owned Smartphone')}
               </div>
               <div className="text-xs text-slate-500 mt-1 capitalize flex items-center gap-2">
                 <span>Channel:</span>

@@ -12,71 +12,12 @@ interface DeliveryTrackingPageProps {
   onNavigate: (page: string, params?: any) => void;
 }
 
-const DEMO_ORDER_TRACKING: OrderTrackingResponse = {
-  order_id: 'RV-DEL-8921-IN',
-  product_id: 'prod_iphone15_pro',
-  product_title: 'Apple iPhone 15 Pro 128GB (Natural Titanium, Pristine)',
-  status: 'delivered',
-  payout_status: 'held_in_escrow',
-  payment_method: 'prepaid',
-  dispatch_deadline: new Date(Date.now() - 40 * 3600 * 1000).toISOString(),
-  dispatch_hours_left: 0,
-  inspection_deadline: new Date(Date.now() + 41 * 3600 * 1000).toISOString(),
-  inspection_hours_left: 41,
-  delivery_otp_masked: '582914',
-  cod_status: 'not_applicable',
-  shipping_address: {
-    full_name: 'Harshad Ghadage',
-    phone: '+91-9876543210',
-    street: '123 MG Road, Koramangala 4th Block',
-    city: 'Bengaluru',
-    state: 'Karnataka',
-    postal_code: '560034',
-    country: 'India',
-  },
-  shipment_info: {
-    courier_name: 'Blue Dart Air Express',
-    tracking_number: 'BD-883921932',
-    awb_code: 'BD-883921932',
-    dispatch_date: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-    is_courier_verified: true,
-    label_url: 'https://revalue.in/labels/BD-883921932.pdf',
-    handover_confirmed_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-    delivered_at: new Date(Date.now() - 7 * 3600 * 1000).toISOString(),
-    notes: 'Contained Lithium-ion battery declared (UN 3481). Manifest scanned at pickup.',
-  },
-  status_history: [
-    { status: 'paid', timestamp: new Date(Date.now() - 48 * 3600 * 1000).toISOString(), updated_by: 'gateway', note: 'Escrow payment verified' },
-    { status: 'shipment_booked', timestamp: new Date(Date.now() - 36 * 3600 * 1000).toISOString(), updated_by: 'seller', note: 'Shipment booked via Shiprocket API' },
-    { status: 'picked_up', timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(), updated_by: 'courier_manifest', note: 'Physical handover confirmed by manifest scan' },
-    { status: 'in_transit', timestamp: new Date(Date.now() - 18 * 3600 * 1000).toISOString(), updated_by: 'courier_hub', note: 'Arrived at Bengaluru sorting hub' },
-    { status: 'out_for_delivery', timestamp: new Date(Date.now() - 9 * 3600 * 1000).toISOString(), updated_by: 'courier_driver', note: 'Rider dispatched for doorstep delivery' },
-    { status: 'delivered', timestamp: new Date(Date.now() - 7 * 3600 * 1000).toISOString(), updated_by: 'doorstep_otp', note: 'Delivered and verified via 6-digit OTP' },
-  ],
-  courier_tracking: {
-    awb_code: 'BD-883921932',
-    courier_name: 'Blue Dart Air Express',
-    current_status: 'Delivered',
-    current_location: 'Bengaluru, KA',
-    milestones: [
-      { status: 'DELIVERED', activity: 'Item delivered to recipient via OTP verification', location: 'Bengaluru KA', timestamp: new Date(Date.now() - 7 * 3600 * 1000).toISOString() },
-      { status: 'OUT_FOR_DELIVERY', activity: 'Out with delivery courier executive', location: 'Bengaluru KA', timestamp: new Date(Date.now() - 9 * 3600 * 1000).toISOString() },
-      { status: 'IN_TRANSIT', activity: 'Arrived at regional delivery hub', location: 'Bengaluru Hub', timestamp: new Date(Date.now() - 18 * 3600 * 1000).toISOString() },
-      { status: 'PICKED_UP', activity: 'Parcel scanned and picked up from seller', location: 'Mumbai Central', timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString() },
-    ],
-    is_delivered: true,
-    is_rto: false,
-  },
-};
-
 export const DeliveryTrackingPage: React.FC<DeliveryTrackingPageProps> = ({
   orderId,
   onNavigate,
 }) => {
-  const [tracking, setTracking] = useState<OrderTrackingResponse | null>(() => {
-    return (!orderId || orderId === 'demo') ? DEMO_ORDER_TRACKING : null;
-  });
-  const [loading, setLoading] = useState(false);
+  const [tracking, setTracking] = useState<OrderTrackingResponse | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Doorstep OTP Verification state
@@ -109,11 +50,13 @@ export const DeliveryTrackingPage: React.FC<DeliveryTrackingPageProps> = ({
   const fetchTracking = async () => {
     setLoading(true);
     setError(null);
+    if (!orderId) {
+      setLoading(false);
+      setError('No order ID provided.');
+      setTracking(null);
+      return;
+    }
     try {
-      if (!orderId || orderId === 'demo') {
-        setTracking(DEMO_ORDER_TRACKING);
-        return;
-      }
       const data = await api.getOrderTracking(orderId);
       setTracking(data);
       if (data.inspection_checklist) {
@@ -121,8 +64,8 @@ export const DeliveryTrackingPage: React.FC<DeliveryTrackingPageProps> = ({
         setChecklistSuccess(true);
       }
     } catch (err: any) {
-      // In case order is not found on backend, render realistic demo tracking
-      setTracking(DEMO_ORDER_TRACKING);
+      setError(err.message || 'Failed to load tracking data for this order.');
+      setTracking(null);
     } finally {
       setLoading(false);
     }

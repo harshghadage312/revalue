@@ -13,97 +13,17 @@ interface SellerDashboardProps {
   onOpenAuth: () => void;
 }
 
-const DEMO_SELLER_ORDERS: Order[] = [
-  {
-    order_id: 'RV-DEL-2026-4412',
-    product_id: 'prod_demo_iphone15',
-    product_title: 'Apple iPhone 15 Pro 128GB (Natural Titanium)',
-    buyer_id: 'buyer_7721',
-    seller_id: 'seller_current',
-    transaction_price: 68999,
-    currency: 'INR',
-    item_price: 68500,
-    shipping_fee: 150,
-    insurance_fee: 349,
-    cod_fee: 0,
-    total_amount: 68999,
-    status: 'paid',
-    payment_method: 'prepaid',
-    purchase_source: 'buy_now',
-    payout_status: 'held_in_escrow',
-    dispatch_deadline: new Date(Date.now() + 38 * 3600 * 1000).toISOString(),
-    shipping_address: {
-      full_name: 'Pooja Verma',
-      phone: '+91-9876501234',
-      street: 'Flat 402, Green Glen Layout, Bellandur',
-      city: 'Bengaluru',
-      state: 'Karnataka',
-      postal_code: '560103',
-      country: 'India',
-    },
-    status_history: [
-      { status: 'paid', timestamp: new Date(Date.now() - 10 * 3600 * 1000).toISOString(), updated_by: 'system', note: 'Prepaid Escrow payment captured' },
-    ],
-    created_at: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
-  },
-  {
-    order_id: 'RV-MUM-2026-1189',
-    product_id: 'prod_demo_s23ultra',
-    product_title: 'Samsung Galaxy S23 Ultra 256GB (Phantom Black)',
-    buyer_id: 'buyer_8829',
-    seller_id: 'seller_current',
-    transaction_price: 54999,
-    currency: 'INR',
-    item_price: 54500,
-    shipping_fee: 150,
-    insurance_fee: 349,
-    cod_fee: 0,
-    total_amount: 54999,
-    status: 'shipment_booked',
-    payment_method: 'prepaid',
-    purchase_source: 'offer',
-    payout_status: 'held_in_escrow',
-    dispatch_deadline: new Date(Date.now() + 18 * 3600 * 1000).toISOString(),
-    shipment_info: {
-      courier_name: 'Delhivery Surface Smart',
-      tracking_number: 'DLV-449102910',
-      awb_code: 'DLV-449102910',
-      dispatch_date: new Date().toISOString(),
-      is_courier_verified: false,
-      label_url: 'https://revalue.in/labels/DLV-449102910.pdf',
-      manifest_url: 'https://revalue.in/manifests/DLV-449102910.pdf',
-    },
-    shipping_address: {
-      full_name: 'Rahul Nair',
-      phone: '+91-9812345678',
-      street: 'B-201 Sunrise Towers, Andheri West',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      postal_code: '400053',
-      country: 'India',
-    },
-    status_history: [
-      { status: 'paid', timestamp: new Date(Date.now() - 30 * 3600 * 1000).toISOString(), updated_by: 'system', note: 'Payment captured' },
-      { status: 'shipment_booked', timestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), updated_by: 'seller', note: 'Courier booked' },
-    ],
-    created_at: new Date(Date.now() - 30 * 3600 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-  }
-];
-
 export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   onNavigate,
   onOpenAuth,
 }) => {
   const { user, isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState<'offers' | 'shipments' | 'listings'>('shipments');
-  const [previewMode, setPreviewMode] = useState(true);
+  const [activeTab, setActiveTab] = useState<'offers' | 'shipments' | 'listings'>('offers');
 
   const [listings, setListings] = useState<Product[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
-  const [orders, setOrders] = useState<Order[]>(DEMO_SELLER_ORDERS);
-  const [loading, setLoading] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Negotiation AI suggestion modal state
   const [suggestionOffer, setSuggestionOffer] = useState<Offer | null>(null);
@@ -143,22 +63,19 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       ]);
       setListings(prodRes.items);
       setOffers(offList);
-      setOrders(ordList.length > 0 ? ordList : DEMO_SELLER_ORDERS);
+      setOrders(ordList);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (isAuthenticated || previewMode) {
-      if (previewMode && orders.length === 0) {
-        setOrders(DEMO_SELLER_ORDERS);
-        setLoading(false);
-      } else {
-        loadData();
-      }
+    if (isAuthenticated) {
+      loadData();
+    } else {
+      setLoading(false);
     }
-  }, [isAuthenticated, previewMode]);
+  }, [isAuthenticated]);
 
   const handleGetAiAdvice = async (offer: Offer) => {
     setSuggestionOffer(offer);
@@ -283,7 +200,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     }
   };
 
-  if (!isAuthenticated && !previewMode) {
+  if (!isAuthenticated) {
     return (
       <div className="max-w-md mx-auto py-24 text-center px-4">
         <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-100">
@@ -293,23 +210,12 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         <p className="text-sm text-slate-500 mb-6 leading-relaxed">
           Access active smartphone listings, rule-assisted buyer negotiation suggestions, and shipment dispatches.
         </p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            onClick={onOpenAuth}
-            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm transition-all shadow-sm shadow-emerald-700/20"
-          >
-            Sign In / Register
-          </button>
-          <button
-            onClick={() => {
-              setPreviewMode(true);
-              setActiveTab('shipments');
-            }}
-            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl text-sm transition-all"
-          >
-            Preview Seller Fulfillment
-          </button>
-        </div>
+        <button
+          onClick={onOpenAuth}
+          className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm transition-all shadow-sm shadow-emerald-700/20"
+        >
+          Sign In / Register
+        </button>
       </div>
     );
   }

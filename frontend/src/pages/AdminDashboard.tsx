@@ -12,129 +12,18 @@ interface AdminDashboardProps {
   onNavigate: (page: string, params?: any) => void;
 }
 
-const DEMO_ADMIN_METRICS = {
-  marketplace_gmv_inr: 2845000,
-  total_orders: 42,
-  completed_orders: 38,
-  active_disputes: 1,
-  total_users: 156,
-};
-
-const DEMO_ADMIN_SHIPMENTS: AdminShipmentItem[] = [
-  {
-    order_id: 'RV-DEL-2026-4412',
-    product_title: 'Apple iPhone 15 Pro 128GB (Natural Titanium)',
-    seller_id: 'usr_seller_01',
-    buyer_id: 'usr_buyer_92',
-    status: 'paid',
-    payout_status: 'held_in_escrow',
-    payment_method: 'prepaid',
-    courier_name: 'Blue Dart Air Express',
-    is_courier_verified: false,
-    dispatch_deadline: new Date(Date.now() + 34 * 3600 * 1000).toISOString(),
-    is_overdue_dispatch: false,
-    cod_status: 'not_applicable',
-    total_amount: 68999,
-    created_at: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
-  },
-  {
-    order_id: 'RV-MUM-2026-1189',
-    product_title: 'Samsung Galaxy S23 Ultra 256GB (Phantom Black)',
-    seller_id: 'usr_seller_02',
-    buyer_id: 'usr_buyer_11',
-    status: 'in_transit',
-    payout_status: 'held_in_escrow',
-    payment_method: 'prepaid',
-    courier_name: 'Delhivery Surface Smart',
-    awb_code: 'DLV-449102910',
-    label_url: 'https://revalue.in/labels/DLV-449102910.pdf',
-    is_courier_verified: true,
-    dispatch_deadline: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
-    is_overdue_dispatch: false,
-    cod_status: 'not_applicable',
-    total_amount: 54999,
-    created_at: new Date(Date.now() - 30 * 3600 * 1000).toISOString(),
-  },
-  {
-    order_id: 'RV-BLR-2026-9812',
-    product_title: 'Apple iPhone 14 128GB (Starlight)',
-    seller_id: 'usr_seller_03',
-    buyer_id: 'usr_buyer_88',
-    status: 'delivered',
-    payout_status: 'held_in_escrow',
-    payment_method: 'prepaid',
-    courier_name: 'Blue Dart Air Express',
-    awb_code: 'BD-771829001',
-    is_courier_verified: true,
-    dispatch_deadline: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
-    inspection_deadline: new Date(Date.now() + 36 * 3600 * 1000).toISOString(),
-    is_overdue_dispatch: false,
-    cod_status: 'not_applicable',
-    total_amount: 42999,
-    created_at: new Date(Date.now() - 50 * 3600 * 1000).toISOString(),
-  },
-];
-
-const DEMO_ADMIN_COD_ORDERS: AdminCodOrder[] = [
-  {
-    order_id: 'RV-HYD-2026-3021',
-    buyer_id: 'usr_buyer_34',
-    seller_id: 'usr_seller_12',
-    expected_amount: 47999,
-    order_status: 'delivered',
-    cod_status: 'collected_by_courier',
-    remittance_info: { courier_reference: 'SR-DEL-99120', remitted_amount: 0 },
-    awb_code: 'EXP-8812903',
-    created_at: new Date(Date.now() - 20 * 3600 * 1000).toISOString(),
-  },
-  {
-    order_id: 'RV-DEL-2026-9011',
-    buyer_id: 'usr_buyer_66',
-    seller_id: 'usr_seller_05',
-    expected_amount: 38499,
-    order_status: 'completed',
-    cod_status: 'reconciled',
-    remittance_info: { courier_reference: 'SR-DEL-88712', remitted_amount: 38499 },
-    awb_code: 'BD-339182',
-    created_at: new Date(Date.now() - 72 * 3600 * 1000).toISOString(),
-  },
-];
-
-const DEMO_COURIER_HEALTH = {
-  status: 'healthy',
-  provider: 'Shiprocket API v2 (Production & Deterministic Fallback)',
-  dispatch_deadline_hours: 48,
-  inspection_window_hours: 48,
-  sample_quotes_available: 4,
-};
-
-const DEMO_DISPUTES = [
-  {
-    id: 'disp_demo_01',
-    order_id: 'RV-PUN-2026-7781',
-    opened_by_user_id: 'usr_buyer_45',
-    reason: 'imei_mismatch',
-    details: 'The IMEI listed in the product description ends in 4492, but the device settings show IMEI ending in 8110. Requesting return and refund.',
-    evidence_images: ['https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=800'],
-    preferred_resolution: 'return_and_refund',
-    status: 'open',
-    created_at: new Date(Date.now() - 18 * 3600 * 1000).toISOString(),
-  }
-];
-
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'delivery' | 'disputes' | 'cod' | 'users'>('delivery');
+  const [activeTab, setActiveTab] = useState<'overview' | 'delivery' | 'disputes' | 'cod' | 'users'>('overview');
 
-  const [metrics, setMetrics] = useState<any>(DEMO_ADMIN_METRICS);
+  const [metrics, setMetrics] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
-  const [disputes, setDisputes] = useState<any[]>(DEMO_DISPUTES);
+  const [disputes, setDisputes] = useState<any[]>([]);
   const [reportedReviews, setReportedReviews] = useState<any[]>([]);
-  const [shipments, setShipments] = useState<AdminShipmentItem[]>(DEMO_ADMIN_SHIPMENTS);
-  const [codOrders, setCodOrders] = useState<AdminCodOrder[]>(DEMO_ADMIN_COD_ORDERS);
-  const [courierHealth, setCourierHealth] = useState<any>(DEMO_COURIER_HEALTH);
-  const [loading, setLoading] = useState(false);
-  const [previewAdmin, setPreviewAdmin] = useState(true);
+  const [shipments, setShipments] = useState<AdminShipmentItem[]>([]);
+  const [codOrders, setCodOrders] = useState<AdminCodOrder[]>([]);
+  const [courierHealth, setCourierHealth] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   // Delivery filters
   const [overdueOnly, setOverdueOnly] = useState(false);
@@ -169,13 +58,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
         api.listAdminCodOrders().then(res => res.cod_orders).catch(() => []),
         api.getCourierHealth().catch(() => null),
       ]);
-      setMetrics(m || DEMO_ADMIN_METRICS);
+      setMetrics(m);
       setUsers(u);
-      setDisputes(d && d.length > 0 ? d : DEMO_DISPUTES);
+      setDisputes(d);
       setReportedReviews(r);
-      setShipments(s && s.length > 0 ? s : DEMO_ADMIN_SHIPMENTS);
-      setCodOrders(c && c.length > 0 ? c : DEMO_ADMIN_COD_ORDERS);
-      setCourierHealth(h || DEMO_COURIER_HEALTH);
+      setShipments(s);
+      setCodOrders(c);
+      setCourierHealth(h);
     } finally {
       setLoading(false);
     }
@@ -255,7 +144,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     }
   };
 
-  if (user?.role !== 'admin' && !previewAdmin) {
+  if (user?.role !== 'admin') {
     return (
       <div className="max-w-md mx-auto py-24 text-center px-4">
         <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100">

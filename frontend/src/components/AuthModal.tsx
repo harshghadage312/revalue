@@ -15,7 +15,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   defaultMode = 'login',
 }) => {
-  const { login, register, quickLogin } = useAuth();
+  const { login, register } = useAuth();
   const [isLogin, setIsLogin] = useState(defaultMode === 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,19 +39,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onClose();
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please verify credentials.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuick = async (persona: 'admin' | 'seller' | 'buyer') => {
-    setError(null);
-    setLoading(true);
-    try {
-      await quickLogin(persona);
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to switch user persona.');
     } finally {
       setLoading(false);
     }
@@ -198,36 +185,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
         </form>
-
-        {/* Demo Personas */}
-        <div className="mt-4 pt-3 border-t border-slate-100 text-center">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
-            Quick Demo Personas
-          </span>
-          <div className="grid grid-cols-3 gap-1.5">
-            <button
-              type="button"
-              onClick={() => handleQuick('seller')}
-              className="py-1 rounded bg-slate-100 hover:bg-slate-200 text-[10.5px] font-semibold text-slate-700"
-            >
-              Seller
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuick('buyer')}
-              className="py-1 rounded bg-slate-100 hover:bg-slate-200 text-[10.5px] font-semibold text-slate-700"
-            >
-              Buyer
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuick('admin')}
-              className="py-1 rounded bg-slate-100 hover:bg-slate-200 text-[10.5px] font-semibold text-slate-700"
-            >
-              Admin
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

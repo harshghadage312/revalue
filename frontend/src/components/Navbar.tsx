@@ -22,7 +22,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenValuator,
   onOpenAuth,
 }) => {
-  const { user, isAuthenticated, logout, quickLogin } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [wishlistCount, setWishlistCount] = useState<number>(0);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -263,33 +263,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <span>Admin Dashboard</span>
                       </button>
                     )}
-
-                    {/* Switch Persona for Testing */}
-                    <div className="border-t border-slate-100 pt-1 mt-1 px-3 py-1.5">
-                      <span className="text-[9.5px] uppercase font-bold text-slate-400 block mb-1">
-                        Quick Persona Switch
-                      </span>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => { quickLogin('seller'); setShowUserMenu(false); }}
-                          className="flex-1 py-1 text-[10px] font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-center"
-                        >
-                          Seller
-                        </button>
-                        <button
-                          onClick={() => { quickLogin('buyer'); setShowUserMenu(false); }}
-                          className="flex-1 py-1 text-[10px] font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-center"
-                        >
-                          Buyer
-                        </button>
-                        <button
-                          onClick={() => { quickLogin('admin'); setShowUserMenu(false); }}
-                          className="flex-1 py-1 text-[10px] font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-center"
-                        >
-                          Admin
-                        </button>
-                      </div>
-                    </div>
 
                     <div className="border-t border-slate-100 mt-1 pt-1">
                       <button
