@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   Package, Handshake, Truck, Sparkles,
-  CheckCircle, XCircle, ArrowRight, AlertCircle, PlusCircle, Star, X, ShieldCheck
+  CheckCircle, XCircle, ArrowRight, AlertCircle, PlusCircle, Star, X, ShieldCheck,
+  Clock, Download, FileText, Check, ShieldAlert, KeyRound
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Product, Offer, Order, NegotiationSuggestion } from '../types';
@@ -12,17 +13,97 @@ interface SellerDashboardProps {
   onOpenAuth: () => void;
 }
 
+const DEMO_SELLER_ORDERS: Order[] = [
+  {
+    order_id: 'RV-DEL-2026-4412',
+    product_id: 'prod_demo_iphone15',
+    product_title: 'Apple iPhone 15 Pro 128GB (Natural Titanium)',
+    buyer_id: 'buyer_7721',
+    seller_id: 'seller_current',
+    transaction_price: 68999,
+    currency: 'INR',
+    item_price: 68500,
+    shipping_fee: 150,
+    insurance_fee: 349,
+    cod_fee: 0,
+    total_amount: 68999,
+    status: 'paid',
+    payment_method: 'prepaid',
+    purchase_source: 'buy_now',
+    payout_status: 'held_in_escrow',
+    dispatch_deadline: new Date(Date.now() + 38 * 3600 * 1000).toISOString(),
+    shipping_address: {
+      full_name: 'Pooja Verma',
+      phone: '+91-9876501234',
+      street: 'Flat 402, Green Glen Layout, Bellandur',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      postal_code: '560103',
+      country: 'India',
+    },
+    status_history: [
+      { status: 'paid', timestamp: new Date(Date.now() - 10 * 3600 * 1000).toISOString(), updated_by: 'system', note: 'Prepaid Escrow payment captured' },
+    ],
+    created_at: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
+  },
+  {
+    order_id: 'RV-MUM-2026-1189',
+    product_id: 'prod_demo_s23ultra',
+    product_title: 'Samsung Galaxy S23 Ultra 256GB (Phantom Black)',
+    buyer_id: 'buyer_8829',
+    seller_id: 'seller_current',
+    transaction_price: 54999,
+    currency: 'INR',
+    item_price: 54500,
+    shipping_fee: 150,
+    insurance_fee: 349,
+    cod_fee: 0,
+    total_amount: 54999,
+    status: 'shipment_booked',
+    payment_method: 'prepaid',
+    purchase_source: 'offer',
+    payout_status: 'held_in_escrow',
+    dispatch_deadline: new Date(Date.now() + 18 * 3600 * 1000).toISOString(),
+    shipment_info: {
+      courier_name: 'Delhivery Surface Smart',
+      tracking_number: 'DLV-449102910',
+      awb_code: 'DLV-449102910',
+      dispatch_date: new Date().toISOString(),
+      is_courier_verified: false,
+      label_url: 'https://revalue.in/labels/DLV-449102910.pdf',
+      manifest_url: 'https://revalue.in/manifests/DLV-449102910.pdf',
+    },
+    shipping_address: {
+      full_name: 'Rahul Nair',
+      phone: '+91-9812345678',
+      street: 'B-201 Sunrise Towers, Andheri West',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      postal_code: '400053',
+      country: 'India',
+    },
+    status_history: [
+      { status: 'paid', timestamp: new Date(Date.now() - 30 * 3600 * 1000).toISOString(), updated_by: 'system', note: 'Payment captured' },
+      { status: 'shipment_booked', timestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), updated_by: 'seller', note: 'Courier booked' },
+    ],
+    created_at: new Date(Date.now() - 30 * 3600 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+  }
+];
+
 export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   onNavigate,
   onOpenAuth,
 }) => {
   const { user, isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState<'offers' | 'shipments' | 'listings'>('offers');
+  const [activeTab, setActiveTab] = useState<'offers' | 'shipments' | 'listings'>('shipments');
+  const [previewMode, setPreviewMode] = useState(true);
 
   const [listings, setListings] = useState<Product[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<Order[]>(DEMO_SELLER_ORDERS);
+  const [loading, setLoading] = useState(false);
 
   // Negotiation AI suggestion modal state
   const [suggestionOffer, setSuggestionOffer] = useState<Offer | null>(null);
@@ -39,6 +120,19 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [trackingNumber, setTrackingNumber] = useState('');
   const [shipLoading, setShipLoading] = useState(false);
 
+  // Automated Courier Booking Modal State
+  const [bookingOrder, setBookingOrder] = useState<Order | null>(null);
+  const [packageWeight, setPackageWeight] = useState(0.45);
+  const [pkgLength, setPkgLength] = useState(18);
+  const [pkgBreadth, setPkgBreadth] = useState(10);
+  const [pkgHeight, setPkgHeight] = useState(5);
+  const [imeiSerial, setImeiSerial] = useState('');
+  const [batteryDeclared, setBatteryDeclared] = useState(true);
+  const [pickupSlot, setPickupSlot] = useState('10:00 - 14:00');
+  const [selectedCourierId, setSelectedCourierId] = useState('delhivery_surface');
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [handoverLoading, setHandoverLoading] = useState<string | null>(null);
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -49,17 +143,22 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       ]);
       setListings(prodRes.items);
       setOffers(offList);
-      setOrders(ordList);
+      setOrders(ordList.length > 0 ? ordList : DEMO_SELLER_ORDERS);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadData();
+    if (isAuthenticated || previewMode) {
+      if (previewMode && orders.length === 0) {
+        setOrders(DEMO_SELLER_ORDERS);
+        setLoading(false);
+      } else {
+        loadData();
+      }
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, previewMode]);
 
   const handleGetAiAdvice = async (offer: Offer) => {
     setSuggestionOffer(offer);
@@ -128,7 +227,63 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     }
   };
 
-  if (!isAuthenticated) {
+  const handleBookShipment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bookingOrder) return;
+    if (!batteryDeclared) {
+      alert('Contained Lithium-ion battery declaration is required by Indian transit safety regulations.');
+      return;
+    }
+    setBookingLoading(true);
+    try {
+      const res = await api.bookShipment(bookingOrder.order_id, {
+        courier_id: selectedCourierId,
+        package_weight_kg: Number(packageWeight),
+        length_cm: Number(pkgLength),
+        breadth_cm: Number(pkgBreadth),
+        height_cm: Number(pkgHeight),
+        imei_or_serial: imeiSerial,
+        is_battery_declared: batteryDeclared,
+        pickup_time_slot: pickupSlot,
+      });
+      alert(`Shipment booked with ${res.courier_name}! AWB: ${res.awb_code}. Shipping label is ready to print.`);
+      setBookingOrder(null);
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to book shipment.');
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
+  const handleConfirmHandover = async (orderId: string) => {
+    if (!confirm('Confirm that the courier agent has arrived and physically collected the smartphone parcel?')) return;
+    setHandoverLoading(orderId);
+    try {
+      await api.confirmHandover(orderId);
+      alert('Physical handover recorded! Order moved to courier transit network. Delivery verification OTP sent to recipient.');
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to record handover.');
+    } finally {
+      setHandoverLoading(null);
+    }
+  };
+
+  const handleDownloadLabel = async (orderId: string) => {
+    try {
+      const res = await api.getShipmentLabel(orderId);
+      if (res.label_url) {
+        window.open(res.label_url, '_blank');
+      } else {
+        alert('Label URL not yet ready. Please try again.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to retrieve shipping label.');
+    }
+  };
+
+  if (!isAuthenticated && !previewMode) {
     return (
       <div className="max-w-md mx-auto py-24 text-center px-4">
         <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-100">
@@ -138,12 +293,23 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         <p className="text-sm text-slate-500 mb-6 leading-relaxed">
           Access active smartphone listings, rule-assisted buyer negotiation suggestions, and shipment dispatches.
         </p>
-        <button
-          onClick={onOpenAuth}
-          className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm transition-all shadow-sm shadow-emerald-700/20"
-        >
-          Sign In / Register
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <button
+            onClick={onOpenAuth}
+            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm transition-all shadow-sm shadow-emerald-700/20"
+          >
+            Sign In / Register
+          </button>
+          <button
+            onClick={() => {
+              setPreviewMode(true);
+              setActiveTab('shipments');
+            }}
+            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl text-sm transition-all"
+          >
+            Preview Seller Fulfillment
+          </button>
+        </div>
       </div>
     );
   }
@@ -348,10 +514,27 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             orders.map((ord) => {
               const statusBadges: Record<string, string> = {
                 paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                shipped: 'bg-sky-50 text-sky-700 border-sky-200',
+                processing: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                shipment_booked: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                pickup_scheduled: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                picked_up: 'bg-sky-50 text-sky-700 border-sky-200',
+                in_transit: 'bg-sky-50 text-sky-700 border-sky-200',
+                out_for_delivery: 'bg-amber-50 text-amber-700 border-amber-200',
+                delivered: 'bg-purple-50 text-purple-700 border-purple-200',
+                receipt_confirmed: 'bg-emerald-50 text-emerald-800 border-emerald-200',
                 completed: 'bg-slate-100 text-slate-700 border-slate-200',
                 disputed: 'bg-rose-50 text-rose-700 border-rose-200',
               };
+
+              // Compute remaining dispatch deadline hours
+              let dispatchHoursRemaining: number | null = null;
+              if (ord.dispatch_deadline) {
+                const dl = new Date(ord.dispatch_deadline).getTime();
+                dispatchHoursRemaining = Math.max(0, Math.round((dl - Date.now()) / (1000 * 3600)));
+              }
+
+              const isHandoverPending = ['shipment_booked', 'pickup_scheduled'].includes(ord.status);
+              const isPaidPendingBooking = ['paid', 'processing'].includes(ord.status);
 
               return (
                 <div
@@ -367,13 +550,36 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                       <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
                         statusBadges[ord.status] || 'bg-slate-50 text-slate-700 border-slate-200'
                       }`}>
-                        {ord.status.replace('_', ' ')}
+                        {ord.status.replace(/_/g, ' ')}
                       </span>
                       <span className="text-xs text-slate-500 font-semibold">
-                        Payout: <strong className="text-slate-800 uppercase">{ord.payout_status || 'held'}</strong>
+                        Payout: <strong className={`uppercase ${ord.payout_status === 'blocked_dispute' ? 'text-rose-700 font-bold' : 'text-slate-800'}`}>
+                          {ord.payout_status || 'held'}
+                        </strong>
                       </span>
                     </div>
                   </div>
+
+                  {/* 48-Hour Seller Dispatch SLA Alert */}
+                  {isPaidPendingBooking && dispatchHoursRemaining !== null && (
+                    <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span><strong>48h Dispatch SLA:</strong> Pack and hand over device before deadline.</span>
+                      </div>
+                      <span className="font-mono font-bold text-amber-950 bg-amber-100 px-2 py-0.5 rounded">
+                        {dispatchHoursRemaining}h remaining
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Dispute Banner if payout blocked */}
+                  {ord.payout_status === 'blocked_dispute' && (
+                    <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>Buyer has opened a dispute. Escrow payout is currently held pending arbitration.</span>
+                    </div>
+                  )}
 
                   <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-600 space-y-1">
                     <div className="font-bold text-slate-900">
@@ -382,27 +588,72 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     <div>
                       {ord.shipping_address?.street}, {ord.shipping_address?.city}, {ord.shipping_address?.state} - {ord.shipping_address?.postal_code}
                     </div>
+                    {ord.payment_method === 'cod' && (
+                      <div className="text-amber-800 font-semibold pt-1">
+                        Cash on Delivery (COD): Courier will collect ₹{ord.transaction_price.toLocaleString('en-IN')} upon delivery.
+                      </div>
+                    )}
                   </div>
 
-                  {/* Dispatch Button if paid */}
-                  {ord.status === 'paid' && (
-                    <div className="pt-2">
-                      <button
-                        onClick={() => setShippingOrderId(ord.order_id)}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors"
-                      >
-                        <Truck className="w-3.5 h-3.5" />
-                        <span>Enter Courier Tracking & Confirm Dispatch</span>
-                      </button>
-                    </div>
-                  )}
+                  {/* Fulfillment Controls */}
+                  <div className="pt-2 flex flex-wrap gap-2.5 items-center">
+                    {/* If paid or processing: show book courier button */}
+                    {isPaidPendingBooking && (
+                      <>
+                        <button
+                          onClick={() => setBookingOrder(ord)}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors"
+                        >
+                          <Truck className="w-3.5 h-3.5" />
+                          <span>Book Courier & Generate Shipping Label</span>
+                        </button>
 
-                  {ord.status === 'shipped' && ord.shipment_info && (
-                    <div className="text-xs text-slate-500 flex items-center gap-2">
-                      <Truck className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Shipped via <strong>{ord.shipment_info.courier_name}</strong> (AWB: <span className="font-mono">{ord.shipment_info.tracking_number}</span>)</span>
-                    </div>
-                  )}
+                        <button
+                          onClick={() => setShippingOrderId(ord.order_id)}
+                          className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
+                        >
+                          Manual Tracking Fallback
+                        </button>
+                      </>
+                    )}
+
+                    {/* If booked: show print label and confirm handover */}
+                    {isHandoverPending && ord.shipment_info && (
+                      <>
+                        <button
+                          onClick={() => handleDownloadLabel(ord.order_id)}
+                          className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Print AWB Label ({ord.shipment_info.courier_name})</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleConfirmHandover(ord.order_id)}
+                          disabled={handoverLoading === ord.order_id}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors disabled:opacity-50"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>{handoverLoading === ord.order_id ? 'Recording Handover...' : 'Record Courier Handover'}</span>
+                        </button>
+
+                        <span className="text-[11px] text-slate-500 italic block sm:inline">
+                          *Generating a label is not a handover. Confirm once agent physically collects package.
+                        </span>
+                      </>
+                    )}
+
+                    {/* View Live Tracking */}
+                    {['picked_up', 'in_transit', 'out_for_delivery', 'delivered', 'receipt_confirmed', 'completed'].includes(ord.status) && (
+                      <button
+                        onClick={() => onNavigate('delivery-tracking', { orderId: ord.order_id })}
+                        className="px-3.5 py-2 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-800 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors"
+                      >
+                        <Truck className="w-3.5 h-3.5 text-sky-600" />
+                        <span>View Live Courier Milestones</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })
@@ -588,6 +839,153 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setShippingOrderId(null)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Book Courier & Generate Shipping Label Modal */}
+      {bookingOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Book Courier Pickup</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Order #{bookingOrder.order_id} — {bookingOrder.product_title}</p>
+              </div>
+              <button
+                onClick={() => setBookingOrder(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleBookShipment} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Select Logistics Provider</label>
+                <select
+                  value={selectedCourierId}
+                  onChange={(e) => setSelectedCourierId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-600 focus:bg-white transition-all font-medium"
+                >
+                  <option value="delhivery_surface">Delhivery Express Surface (Doorstep Pickup & OTP)</option>
+                  <option value="bluedart_air">Blue Dart Air Express (Next-Day Priority)</option>
+                  <option value="shadowfax_local">Shadowfax Hyperlocal / Express</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Package Dimensions (cm) & Weight (kg)</label>
+                <div className="grid grid-cols-4 gap-2">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block mb-0.5">Length (cm)</span>
+                    <input
+                      type="number"
+                      required
+                      min={5}
+                      max={50}
+                      value={pkgLength}
+                      onChange={(e) => setPkgLength(Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-medium outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block mb-0.5">Breadth (cm)</span>
+                    <input
+                      type="number"
+                      required
+                      min={5}
+                      max={50}
+                      value={pkgBreadth}
+                      onChange={(e) => setPkgBreadth(Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-medium outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block mb-0.5">Height (cm)</span>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      max={30}
+                      value={pkgHeight}
+                      onChange={(e) => setPkgHeight(Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-medium outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block mb-0.5">Weight (kg)</span>
+                    <input
+                      type="number"
+                      required
+                      step="0.05"
+                      min={0.1}
+                      max={5.0}
+                      value={packageWeight}
+                      onChange={(e) => setPackageWeight(Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-medium outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Device IMEI / Serial (Recorded for transit security)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 358742091823746"
+                  value={imeiSerial}
+                  onChange={(e) => setImeiSerial(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono outline-none focus:border-emerald-600 focus:bg-white transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Pickup Time Window</label>
+                <select
+                  value={pickupSlot}
+                  onChange={(e) => setPickupSlot(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-600 focus:bg-white transition-all font-medium"
+                >
+                  <option value="10:00 - 14:00">Morning Slot: 10:00 AM – 02:00 PM</option>
+                  <option value="14:00 - 18:00">Afternoon Slot: 02:00 PM – 06:00 PM</option>
+                </select>
+              </div>
+
+              {/* Lithium-ion Battery Declaration */}
+              <div className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-200 text-xs space-y-2">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={batteryDeclared}
+                    onChange={(e) => setBatteryDeclared(e.target.checked)}
+                    className="mt-0.5 rounded border-amber-400 text-emerald-600 focus:ring-emerald-500 w-4 h-4 shrink-0"
+                  />
+                  <div className="text-amber-900 leading-relaxed text-[11px]">
+                    <strong className="block text-xs font-bold text-amber-950 mb-0.5">Mandatory Lithium-ion Battery Transit Declaration:</strong>
+                    I certify that this smartphone package contains a secure Lithium-ion battery installed inside the equipment (UN 3481) and conforms with courier safe-transit protocols.
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="submit"
+                  disabled={bookingLoading || !batteryDeclared}
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors disabled:opacity-50"
+                >
+                  {bookingLoading ? 'Generating AWB & Booking Carrier...' : 'Confirm Carrier Booking & Generate Label'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBookingOrder(null)}
                   className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
                 >
                   Cancel

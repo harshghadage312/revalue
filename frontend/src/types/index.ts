@@ -141,12 +141,25 @@ export type OrderStatus =
   | 'pending_payment'
   | 'paid'
   | 'processing'
-  | 'shipped'
+  | 'shipment_booked'
+  | 'pickup_scheduled'
+  | 'picked_up'
+  | 'in_transit'
+  | 'out_for_delivery'
+  | 'delivery_attempted'
   | 'delivered'
+  | 'inspection_passed'
   | 'receipt_confirmed'
   | 'completed'
   | 'cancelled'
-  | 'disputed';
+  | 'disputed'
+  | 'return_requested'
+  | 'return_in_transit'
+  | 'returned'
+  | 'refunded'
+  | 'rto_initiated'
+  | 'rto_delivered'
+  | 'shipped';
 
 export interface ShippingAddress {
   full_name: string;
@@ -167,16 +180,29 @@ export interface Order {
   buyer_name?: string;
   seller_id: string;
   seller_name?: string;
+  item_price?: number;
+  shipping_fee?: number;
+  insurance_fee?: number;
+  cod_fee?: number;
   transaction_price: number;
+  total_amount?: number;
   currency: string;
   status: OrderStatus;
+  payment_method?: 'prepaid' | 'cod';
   purchase_source: 'buy_now' | 'offer' | 'auction';
   shipping_address: ShippingAddress;
   shipment_info?: {
     courier_name: string;
     tracking_number: string;
+    awb_code?: string;
     dispatch_date: string;
     is_courier_verified: boolean;
+    label_url?: string;
+    manifest_url?: string;
+    pickup_token?: string;
+    handover_confirmed_at?: string;
+    delivered_at?: string;
+    pod_url?: string;
     notes?: string;
   };
   payment_info?: {
@@ -186,6 +212,10 @@ export interface Order {
     paid_at: string;
   };
   payout_status?: string;
+  dispatch_deadline?: string;
+  inspection_deadline?: string;
+  delivery_otp_masked?: string;
+  cod_status?: string;
   status_history: Array<{
     status: OrderStatus;
     timestamp: string;
@@ -194,6 +224,149 @@ export interface Order {
   }>;
   created_at: string;
   updated_at: string;
+}
+
+export interface ShippingRateQuote {
+  quote_id: string;
+  courier_id: string;
+  courier_name: string;
+  rate: number;
+  cod_charges: number;
+  insurance_fee: number;
+  estimated_delivery_days: number;
+  pickup_pincode: string;
+  delivery_pincode: string;
+  provider: string;
+  expires_at: string;
+}
+
+export interface ShippingQuoteResponse {
+  is_serviceable: boolean;
+  pickup_pincode: string;
+  delivery_pincode: string;
+  quotes: ShippingRateQuote[];
+  message?: string;
+}
+
+export interface TrackingMilestone {
+  status: string;
+  activity: string;
+  location?: string;
+  timestamp: string;
+  raw_status?: string;
+}
+
+export interface CourierTrackingInfo {
+  awb_code: string;
+  courier_name: string;
+  current_status: string;
+  current_location?: string;
+  estimated_delivery?: string;
+  milestones: TrackingMilestone[];
+  is_delivered: boolean;
+  is_rto: boolean;
+  rto_reason?: string;
+}
+
+export interface OrderTrackingResponse {
+  order_id: string;
+  product_id?: string;
+  product_title?: string;
+  status: OrderStatus;
+  payout_status?: string;
+  payment_method?: 'prepaid' | 'cod';
+  dispatch_deadline?: string;
+  dispatch_hours_left?: number;
+  inspection_deadline?: string;
+  inspection_hours_left?: number;
+  delivery_otp_masked?: string;
+  cod_status?: string;
+  shipping_address?: ShippingAddress;
+  shipment_info?: {
+    courier_name: string;
+    tracking_number: string;
+    awb_code?: string;
+    dispatch_date: string;
+    is_courier_verified: boolean;
+    label_url?: string;
+    manifest_url?: string;
+    pickup_token?: string;
+    handover_confirmed_at?: string;
+    delivered_at?: string;
+    pod_url?: string;
+    notes?: string;
+  };
+  inspection_checklist?: InspectionChecklist;
+  status_history: Array<{
+    status: OrderStatus;
+    timestamp: string;
+    updated_by: string;
+    note?: string;
+  }>;
+  courier_tracking?: CourierTrackingInfo;
+}
+
+export interface InspectionChecklist {
+  screen_ok: boolean;
+  touch_ok: boolean;
+  cameras_ok: boolean;
+  audio_ok: boolean;
+  charging_battery_ok: boolean;
+  physical_condition_matches: boolean;
+  imei_matches: boolean;
+  notes?: string;
+  submitted_at?: string;
+}
+
+export interface Dispute {
+  id: string;
+  order_id: string;
+  opened_by_user_id: string;
+  reason: string;
+  details: string;
+  evidence_images: string[];
+  preferred_resolution?: string;
+  requested_refund_amount?: number;
+  status: 'open' | 'under_review' | 'resolved' | 'dismissed';
+  resolution_notes?: string;
+  resolved_action?: string;
+  refund_amount_issued?: number;
+  created_at: string;
+  resolved_at?: string;
+}
+
+export interface AdminShipmentItem {
+  order_id: string;
+  product_id?: string;
+  product_title?: string;
+  buyer_id?: string;
+  seller_id?: string;
+  status: OrderStatus;
+  payout_status?: string;
+  courier_name: string;
+  awb_code?: string;
+  label_url?: string;
+  pickup_token?: string;
+  is_courier_verified: boolean;
+  dispatch_deadline?: string;
+  is_overdue_dispatch: boolean;
+  inspection_deadline?: string;
+  payment_method: 'prepaid' | 'cod';
+  cod_status: string;
+  total_amount: number;
+  created_at: string;
+}
+
+export interface AdminCodOrder {
+  order_id: string;
+  awb_code?: string;
+  buyer_id?: string;
+  seller_id?: string;
+  expected_amount: number;
+  cod_status: string;
+  remittance_info?: any;
+  order_status: OrderStatus;
+  created_at: string;
 }
 
 export interface PriceEstimate {

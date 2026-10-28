@@ -14,9 +14,34 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { AiPriceValuatorModal } from './components/AiPriceValuatorModal';
 import { AuthModal } from './components/AuthModal';
 
+const getInitialPage = () => {
+  if (typeof window !== 'undefined') {
+    const hash = window.location.hash.replace('#', '') || '';
+    if (hash) return hash.split('?')[0];
+    const path = window.location.pathname.replace(/^\//, '') || '';
+    if (path) return path.split('?')[0];
+  }
+  return 'landing';
+};
+
+const getInitialParams = () => {
+  if (typeof window !== 'undefined') {
+    const hash = window.location.hash.replace('#', '') || '';
+    const parts = hash.split('?');
+    if (parts[1]) {
+      return Object.fromEntries(new URLSearchParams(parts[1]));
+    }
+    const search = window.location.search;
+    if (search) {
+      return Object.fromEntries(new URLSearchParams(search));
+    }
+  }
+  return {};
+};
+
 export const AppContent: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState<string>('landing');
-  const [pageParams, setPageParams] = useState<any>({});
+  const [currentPage, setCurrentPage] = useState<string>(getInitialPage);
+  const [pageParams, setPageParams] = useState<any>(getInitialParams);
   const [showValuator, setShowValuator] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -112,7 +137,7 @@ export const AppContent: React.FC = () => {
           />
         )}
 
-        {currentPage === 'delivery-tracking' && (
+        {(currentPage === 'delivery-tracking' || currentPage === 'tracking') && (
           <DeliveryTrackingPage
             orderId={pageParams.orderId}
             onNavigate={navigate}

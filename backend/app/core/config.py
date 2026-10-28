@@ -52,6 +52,17 @@ class Settings(BaseSettings):
     RAZORPAY_WEBHOOK_SECRET: Optional[str] = None
     PAYMENT_RELEASE_HOLD_HOURS: int = 48
 
+    # Logistics & Courier Providers
+    COURIER_PROVIDER: str = "sandbox"  # "sandbox", "shiprocket", "disabled"
+    SHIPROCKET_EMAIL: Optional[str] = None
+    SHIPROCKET_PASSWORD: Optional[str] = None
+    SHIPROCKET_API_BASE_URL: str = "https://apiv2.shiprocket.in/v1/external"
+    SHIPROCKET_WEBHOOK_SECRET: Optional[str] = None
+    DISPATCH_DEADLINE_HOURS: int = 48
+    INSPECTION_WINDOW_HOURS: int = 48
+    DEFAULT_PICKUP_PINCODE: str = "400001"
+    SHIPPING_QUOTE_EXPIRY_MINUTES: int = 30
+
     # Machine Learning Models
     PRICE_MODEL_PATH: str = "./ml/price_prediction/artifacts/mindvalue_random_forest_model.pkl"
     MOBILE_CONDITION_MODEL_PATH: str = "./ml/mobile_condition/artifacts/mobilenet_condition.keras"
