@@ -2,7 +2,9 @@ import {
   AuthResponse, User, Product, ProductListResponse,
   Offer, NegotiationSuggestion, Auction, Order,
   PriceEstimate, MobileCondition, RecommendationItem,
-  Review, Notification
+  Review, Notification, ShippingQuoteResponse,
+  OrderTrackingResponse, InspectionChecklist, AdminShipmentItem,
+  AdminCodOrder
 } from '../types';
 
 /**
@@ -259,7 +261,76 @@ class ApiClient {
     });
   }
 
-  // --- Delivery & Fulfillment ---
+  // --- Delivery, Courier & Inspection System ---
+  async getShippingQuotes(
+    productId: string,
+    deliveryPincode: string,
+    isCod = false,
+    optInInsurance = false
+  ): Promise<ShippingQuoteResponse> {
+    return this.request<ShippingQuoteResponse>('/orders/shipping/quotes', {
+      method: 'POST',
+      body: JSON.stringify({
+        product_id: productId,
+        delivery_pincode: deliveryPincode,
+        is_cod: isCod,
+        opt_in_insurance: optInInsurance,
+      }),
+    });
+  }
+
+  async bookShipment(orderId: string, bookingData: {
+    courier_id?: string;
+    package_weight_kg?: number;
+    length_cm?: number;
+    breadth_cm?: number;
+    height_cm?: number;
+    imei_or_serial?: string;
+    is_battery_declared: boolean;
+    pickup_time_slot?: string;
+  }): Promise<any> {
+    return this.request<any>(`/orders/${orderId}/shipment/book`, {
+      method: 'POST',
+      body: JSON.stringify(bookingData),
+    });
+  }
+
+  async getShipmentLabel(orderId: string): Promise<{ order_id: string; awb_code: string; courier_name: string; label_url: string }> {
+    return this.request<{ order_id: string; awb_code: string; courier_name: string; label_url: string }>(`/orders/${orderId}/shipment/label`);
+  }
+
+  async confirmHandover(orderId: string, notes?: string): Promise<any> {
+    return this.request<any>(`/orders/${orderId}/shipment/handover`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    });
+  }
+
+  async getOrderTracking(orderId: string): Promise<OrderTrackingResponse> {
+    return this.request<OrderTrackingResponse>(`/orders/${orderId}/tracking`);
+  }
+
+  async verifyDeliveryOtp(orderId: string, enteredOtp: string): Promise<any> {
+    return this.request<any>(`/orders/${orderId}/delivery/otp/verify`, {
+      method: 'POST',
+      body: JSON.stringify({ entered_otp: enteredOtp }),
+    });
+  }
+
+  async submitInspectionChecklist(orderId: string, checklist: InspectionChecklist): Promise<any> {
+    return this.request<any>(`/orders/${orderId}/inspection/checklist`, {
+      method: 'POST',
+      body: JSON.stringify(checklist),
+    });
+  }
+
+  async bookReturn(orderId: string, reason: string, disputeId?: string): Promise<any> {
+    return this.request<any>(`/orders/${orderId}/return/book`, {
+      method: 'POST',
+      body: JSON.stringify({ reason, dispute_id: disputeId }),
+    });
+  }
+
   async updateShipment(orderId: string, courierName: string, trackingNumber: string): Promise<any> {
     return this.request<any>(`/orders/${orderId}/shipment`, {
       method: 'POST',
@@ -273,10 +344,23 @@ class ApiClient {
     });
   }
 
-  async openDispute(orderId: string, reason: string, details: string): Promise<any> {
+  async openDispute(
+    orderId: string,
+    reason: string,
+    details: string,
+    evidenceImages: string[] = [],
+    preferredResolution = 'return_and_refund',
+    requestedRefundAmount?: number
+  ): Promise<any> {
     return this.request<any>(`/orders/${orderId}/disputes`, {
       method: 'POST',
-      body: JSON.stringify({ reason, details }),
+      body: JSON.stringify({
+        reason,
+        details,
+        evidence_images: evidenceImages,
+        preferred_resolution: preferredResolution,
+        requested_refund_amount: requestedRefundAmount,
+      }),
     });
   }
 
@@ -366,10 +450,52 @@ class ApiClient {
     return this.request<any[]>('/admin/disputes');
   }
 
-  async resolveAdminDispute(disputeId: string, resolution: string, resolutionNotes: string): Promise<any> {
+  async resolveAdminDispute(
+    disputeId: string,
+    resolution: string,
+    resolutionNotes: string,
+    partialRefundAmount?: number
+  ): Promise<any> {
     return this.request<any>(`/admin/disputes/${disputeId}/resolve`, {
       method: 'POST',
-      body: JSON.stringify({ resolution, resolution_notes: resolutionNotes }),
+      body: JSON.stringify({
+        resolution,
+        resolution_notes: resolutionNotes,
+        partial_refund_amount: partialRefundAmount,
+      }),
+    });
+  }
+
+  async listAdminShipments(status?: string, overdueOnly = false, page = 1, size = 20): Promise<{ shipments: AdminShipmentItem[]; total: number }> {
+    let url = `/admin/shipments?page=${page}&size=${size}&overdue_only=${overdueOnly}`;
+    if (status) url += `&status=${status}`;
+    return this.request<{ shipments: AdminShipmentItem[]; total: number }>(url);
+  }
+
+  async listAdminCodOrders(status?: string): Promise<{ cod_orders: AdminCodOrder[]; total: number }> {
+    const url = status ? `/admin/cod/reconciliation?status=${status}` : '/admin/cod/reconciliation';
+    return this.request<{ cod_orders: AdminCodOrder[]; total: number }>(url);
+  }
+
+  async reconcileCodOrder(awbCode: string, remittedAmount: number, courierReference: string, notes?: string): Promise<any> {
+    return this.request<any>('/admin/cod/reconcile', {
+      method: 'POST',
+      body: JSON.stringify({
+        awb_code: awbCode,
+        remitted_amount: remittedAmount,
+        courier_reference: courierReference,
+        notes,
+      }),
+    });
+  }
+
+  async getCourierHealth(): Promise<any> {
+    return this.request<any>('/admin/courier/health');
+  }
+
+  async processInspectionTimeouts(): Promise<any> {
+    return this.request<any>('/orders/inspection/process-timeouts', {
+      method: 'POST',
     });
   }
 

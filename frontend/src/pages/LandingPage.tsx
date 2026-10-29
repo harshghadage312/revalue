@@ -199,7 +199,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       </div>
                     </div>
 
-                    {/* Quick CTA inside mockup */}
+                    {/* Quick CTA inside editorial preview card */}
                     <button
                       type="button"
                       onClick={() => onNavigate('marketplace', { brand: 'Apple' })}

@@ -31,7 +31,7 @@ from app.api.v1.offers import router as offers_router
 from app.api.v1.auctions import router as auctions_router
 from app.api.v1.orders import router as orders_router
 from app.api.v1.payments import router as payments_router
-from app.api.v1.delivery import router as delivery_router
+from app.api.v1.delivery import router as delivery_router, webhook_router as courier_webhook_router
 from app.api.v1.reviews import router as reviews_router
 from app.api.v1.wishlist import router as wishlist_router
 from app.api.v1.notifications import router as notifications_router
@@ -83,6 +83,8 @@ app.include_router(auctions_router, prefix=api_v1_prefix)
 app.include_router(orders_router, prefix=api_v1_prefix)
 app.include_router(payments_router, prefix=api_v1_prefix)
 app.include_router(delivery_router, prefix=api_v1_prefix)
+app.include_router(courier_webhook_router, prefix=api_v1_prefix)
+app.include_router(courier_webhook_router, prefix="")
 app.include_router(reviews_router, prefix=api_v1_prefix)
 app.include_router(wishlist_router, prefix=api_v1_prefix)
 app.include_router(notifications_router, prefix=api_v1_prefix)

@@ -64,7 +64,17 @@ class MemoryCollection:
                     return False
                 continue
 
-            doc_val = doc.get(k)
+            if "." in k:
+                parts = k.split(".")
+                doc_val = doc
+                for p in parts:
+                    if isinstance(doc_val, dict):
+                        doc_val = doc_val.get(p)
+                    else:
+                        doc_val = None
+                        break
+            else:
+                doc_val = doc.get(k)
             if isinstance(v, dict):
                 for op, op_val in v.items():
                     if op == "$eq" and doc_val != op_val:
@@ -132,6 +142,16 @@ class MemoryCollection:
                 inserted_id = _id
             return InsertResult()
 
+    def insert_many(self, docs: List[Dict[str, Any]]):
+        with self._lock:
+            ids = []
+            for doc in docs:
+                res = self.insert_one(doc)
+                ids.append(res.inserted_id)
+            class InsertManyResult:
+                inserted_ids = ids
+            return InsertManyResult()
+
     def update_one(self, query: Dict[str, Any], update: Dict[str, Any], upsert: bool = False):
         with self._lock:
             target = None
@@ -148,11 +168,33 @@ class MemoryCollection:
             if target:
                 res.matched_count = 1
                 if "$set" in update:
-                    target.update(copy.deepcopy(update["$set"]))
+                    for key, val in update["$set"].items():
+                        if "." in key:
+                            parts = key.split(".")
+                            curr = target
+                            for p in parts[:-1]:
+                                if p not in curr or not isinstance(curr[p], dict):
+                                    curr[p] = {}
+                                curr = curr[p]
+                            curr[parts[-1]] = copy.deepcopy(val)
+                        else:
+                            target[key] = copy.deepcopy(val)
                     res.modified_count = 1
                 if "$unset" in update:
                     for k in update["$unset"]:
-                        target.pop(k, None)
+                        if "." in k:
+                            parts = k.split(".")
+                            curr = target
+                            for p in parts[:-1]:
+                                if isinstance(curr, dict) and p in curr:
+                                    curr = curr[p]
+                                else:
+                                    curr = None
+                                    break
+                            if isinstance(curr, dict):
+                                curr.pop(parts[-1], None)
+                        else:
+                            target.pop(k, None)
                     res.modified_count = 1
                 if "$inc" in update:
                     for k, val in update["$inc"].items():
@@ -162,12 +204,25 @@ class MemoryCollection:
                     for k, val in update["$push"].items():
                         if k not in target or not isinstance(target[k], list):
                             target[k] = []
-                        target[k].append(copy.deepcopy(val))
+                        if isinstance(val, dict) and "$each" in val:
+                            target[k].extend(copy.deepcopy(val["$each"]))
+                        else:
+                            target[k].append(copy.deepcopy(val))
                     res.modified_count = 1
             elif upsert:
                 new_doc = copy.deepcopy(query)
                 if "$set" in update:
-                    new_doc.update(copy.deepcopy(update["$set"]))
+                    for key, val in update["$set"].items():
+                        if "." in key:
+                            parts = key.split(".")
+                            curr = new_doc
+                            for p in parts[:-1]:
+                                if p not in curr or not isinstance(curr[p], dict):
+                                    curr[p] = {}
+                                curr = curr[p]
+                            curr[parts[-1]] = copy.deepcopy(val)
+                        else:
+                            new_doc[key] = copy.deepcopy(val)
                 self.insert_one(new_doc)
                 res.modified_count = 1
             return res
@@ -178,7 +233,17 @@ class MemoryCollection:
             for doc in self._docs.values():
                 if self._matches_filter(doc, query):
                     if "$set" in update:
-                        doc.update(copy.deepcopy(update["$set"]))
+                        for key, val in update["$set"].items():
+                            if "." in key:
+                                parts = key.split(".")
+                                curr = doc
+                                for p in parts[:-1]:
+                                    if p not in curr or not isinstance(curr[p], dict):
+                                        curr[p] = {}
+                                    curr = curr[p]
+                                curr[parts[-1]] = copy.deepcopy(val)
+                            else:
+                                doc[key] = copy.deepcopy(val)
                         modified += 1
             class Result:
                 modified_count = modified

@@ -10,7 +10,6 @@ interface AuthContextType {
   register: (name: string, email: string, pass: string, role: UserRole) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
-  quickLogin: (role: 'admin' | 'seller' | 'buyer') => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -67,16 +66,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const quickLogin = async (role: 'admin' | 'seller' | 'buyer') => {
-    const creds = {
-      admin: { email: 'admin@revalue.market', pass: 'AdminSecurePass!2026' },
-      seller: { email: 'rajesh.seller@revalue.market', pass: 'SellerPass123!' },
-      buyer: { email: 'anita.buyer@revalue.market', pass: 'BuyerPass123!' },
-    };
-    const c = creds[role];
-    await login(c.email, c.pass);
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -87,7 +76,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         refreshUser,
-        quickLogin,
       }}
     >
       {children}
