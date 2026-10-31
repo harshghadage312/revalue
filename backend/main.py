@@ -36,6 +36,7 @@ from app.api.v1.reviews import router as reviews_router
 from app.api.v1.wishlist import router as wishlist_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.admin import router as admin_router
+from app.api.v1.riders import router as riders_router
 from app.api.v1.ml import router as ml_router
 from app.api.v1.health import router as health_router
 
@@ -89,6 +90,7 @@ app.include_router(reviews_router, prefix=api_v1_prefix)
 app.include_router(wishlist_router, prefix=api_v1_prefix)
 app.include_router(notifications_router, prefix=api_v1_prefix)
 app.include_router(admin_router, prefix=api_v1_prefix)
+app.include_router(riders_router, prefix=api_v1_prefix)
 app.include_router(ml_router, prefix=api_v1_prefix)
 
 

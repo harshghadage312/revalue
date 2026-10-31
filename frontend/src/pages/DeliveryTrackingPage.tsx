@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Truck, CheckCircle2, AlertTriangle, ShieldCheck,
   ArrowLeft, Clock, MapPin, Package, AlertCircle, X, Check,
-  KeyRound, FileText, Download, RotateCcw, ShieldAlert, Sparkles
+  KeyRound, FileText, Download, RotateCcw, ShieldAlert, Sparkles, Bike, Phone
 } from 'lucide-react';
 import { api } from '../services/api';
 import { OrderTrackingResponse, InspectionChecklist } from '../types';
@@ -355,6 +355,44 @@ export const DeliveryTrackingPage: React.FC<DeliveryTrackingPageProps> = ({
           </div>
         )}
 
+        {/* Local Fleet Delivery Partner Card (if direct local fulfillment) */}
+        {tracking.local_delivery_job && (
+          <div className="p-5 rounded-2xl bg-slate-900 text-white space-y-3 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Bike className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white">ReValue Direct Local Partner Delivery</h3>
+                  <p className="text-[11px] text-slate-400">Handled by our verified local fleet partner</p>
+                </div>
+              </div>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-300">
+                {tracking.local_delivery_job.status.replace(/_/g, ' ')}
+              </span>
+            </div>
+
+            {tracking.local_delivery_job.assigned_rider_name && (
+              <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Assigned Rider</span>
+                  <span className="font-bold text-slate-100">{tracking.local_delivery_job.assigned_rider_name}</span>
+                </div>
+                {tracking.local_delivery_job.assigned_rider_phone && (
+                  <a
+                    href={`tel:${tracking.local_delivery_job.assigned_rider_phone}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-colors"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>Call Partner</span>
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Doorstep Delivery OTP Verification Widget (if in transit / out for delivery) */}
         {['picked_up', 'in_transit', 'out_for_delivery'].includes(tracking.status) && (
           <div className="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200/90 space-y-3">
@@ -368,6 +406,23 @@ export const DeliveryTrackingPage: React.FC<DeliveryTrackingPageProps> = ({
                 <span> Masked OTP sent to recipient: <strong className="font-mono text-slate-900">{tracking.delivery_otp_masked}</strong>.</span>
               )}
             </p>
+
+            {/* Display OTP clearly to the buyer if unmasked OTP is provided in response */}
+            {tracking.delivery_otp && (
+              <div className="bg-white p-3.5 rounded-xl border border-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                    Your Secret Doorstep Handover OTP
+                  </span>
+                  <span className="text-2xl font-mono font-extrabold tracking-widest text-emerald-700">
+                    {tracking.delivery_otp}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 sm:max-w-xs sm:text-right leading-tight">
+                  Share this 6-digit code with your delivery partner only after receiving and inspecting the package.
+                </p>
+              </div>
+            )}
 
             <form onSubmit={handleVerifyOtp} className="flex gap-2 max-w-sm pt-1">
               <input

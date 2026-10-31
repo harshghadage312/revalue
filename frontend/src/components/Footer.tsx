@@ -150,7 +150,25 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenValuator }) =>
                 </button>
               </li>
               <li>
-                <span className="text-slate-500">Order Delivery & Payout Protection</span>
+                <button
+                  type="button"
+                  onClick={() => handleNav('delivery-partner-signup')}
+                  className="hover:text-emerald-400 transition-colors text-emerald-400 font-semibold"
+                >
+                  Become a Delivery Partner
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => handleNav('rider-dashboard')}
+                  className="hover:text-emerald-400 transition-colors"
+                >
+                  Partner Dashboard
+                </button>
+              </li>
+              <li>
+                <span className="text-slate-500">Local Verified Couriers & Payout Protection</span>
               </li>
             </ul>
           </div>

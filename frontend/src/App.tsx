@@ -11,6 +11,13 @@ import { SellerDashboard } from './pages/SellerDashboard';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { DeliveryTrackingPage } from './pages/DeliveryTrackingPage';
 import { AdminDashboard } from './pages/AdminDashboard';
+import { DeliveryPartnerSignupPage } from './pages/DeliveryPartnerSignupPage';
+import { DeliveryPartnerApplicationStatusPage } from './pages/DeliveryPartnerApplicationStatusPage';
+import { RiderDashboard } from './pages/RiderDashboard';
+import { RiderJobsPage } from './pages/RiderJobsPage';
+import { RiderJobDetailPage } from './pages/RiderJobDetailPage';
+import { RiderEarningsPage } from './pages/RiderEarningsPage';
+import { RiderProfilePage } from './pages/RiderProfilePage';
 import { AiPriceValuatorModal } from './components/AiPriceValuatorModal';
 import { AuthModal } from './components/AuthModal';
 
@@ -147,6 +154,56 @@ export const AppContent: React.FC = () => {
         {currentPage === 'admin-dashboard' && (
           <AdminDashboard
             onNavigate={navigate}
+          />
+        )}
+
+        {(currentPage === 'delivery-partner-signup' || currentPage === 'delivery-partner/signup') && (
+          <DeliveryPartnerSignupPage
+            onNavigate={navigate}
+            onOpenAuth={() => setShowAuthModal(true)}
+          />
+        )}
+
+        {(currentPage === 'delivery-partner-application' || currentPage === 'delivery-partner/application') && (
+          <DeliveryPartnerApplicationStatusPage
+            onNavigate={navigate}
+            onOpenAuth={() => setShowAuthModal(true)}
+          />
+        )}
+
+        {(currentPage === 'rider-dashboard' || currentPage === 'rider/dashboard' || currentPage === 'rider') && (
+          <RiderDashboard
+            onNavigate={navigate}
+            onOpenAuth={() => setShowAuthModal(true)}
+          />
+        )}
+
+        {(currentPage === 'rider-jobs' || currentPage === 'rider/jobs') && (
+          <RiderJobsPage
+            onNavigate={navigate}
+            onOpenAuth={() => setShowAuthModal(true)}
+          />
+        )}
+
+        {(currentPage === 'rider-job-detail' || currentPage === 'rider/job') && (
+          <RiderJobDetailPage
+            jobId={pageParams.jobId}
+            onNavigate={navigate}
+            onOpenAuth={() => setShowAuthModal(true)}
+          />
+        )}
+
+        {(currentPage === 'rider-earnings' || currentPage === 'rider/earnings') && (
+          <RiderEarningsPage
+            onNavigate={navigate}
+            onOpenAuth={() => setShowAuthModal(true)}
+          />
+        )}
+
+        {(currentPage === 'rider-profile' || currentPage === 'rider/profile') && (
+          <RiderProfilePage
+            onNavigate={navigate}
+            onOpenAuth={() => setShowAuthModal(true)}
           />
         )}
       </main>

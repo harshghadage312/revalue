@@ -67,6 +67,29 @@ def init_indexes():
         # Disputes collection
         db.disputes.create_index("order_id", name="idx_disputes_order_id")
 
+        # Delivery Partner (Rider) profiles collection
+        db.rider_profiles.create_index("id", unique=True, name="idx_riders_id_unique")
+        db.rider_profiles.create_index("user_id", unique=True, name="idx_riders_user_id_unique")
+        db.rider_profiles.create_index("phone", unique=True, name="idx_riders_phone_unique")
+        db.rider_profiles.create_index("application_status", name="idx_riders_status")
+        db.rider_profiles.create_index("is_online", name="idx_riders_online")
+        db.rider_profiles.create_index("service_pincodes", name="idx_riders_pincodes")
+        db.rider_profiles.create_index("city", name="idx_riders_city")
+
+        # Local Delivery Jobs collection
+        db.delivery_jobs.create_index("id", unique=True, name="idx_deliv_jobs_id_unique")
+        db.delivery_jobs.create_index("order_id", unique=True, name="idx_deliv_jobs_order_id_unique")
+        db.delivery_jobs.create_index("status", name="idx_deliv_jobs_status")
+        db.delivery_jobs.create_index("assigned_rider_id", name="idx_deliv_jobs_rider_id")
+        db.delivery_jobs.create_index("pickup_pincode", name="idx_deliv_jobs_pickup_pincode")
+        db.delivery_jobs.create_index("delivery_pincode", name="idx_deliv_jobs_delivery_pincode")
+
+        # Local Service Areas collection
+        db.service_areas.create_index("id", unique=True, name="idx_serv_areas_id_unique")
+        db.service_areas.create_index("city", name="idx_serv_areas_city")
+        db.service_areas.create_index("is_active", name="idx_serv_areas_active")
+        db.service_areas.create_index("pincodes", name="idx_serv_areas_pincodes")
+
         logger.info("Database indexes successfully initialized.")
     except Exception as e:
         logger.warning(f"Note on index creation: {str(e)}")

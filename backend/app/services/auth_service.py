@@ -25,6 +25,12 @@ class AuthService:
         db = get_db()
         email = req.email.lower().strip()
 
+        # Security check: Prevent unauthorized self-assignment of rider and admin roles
+        if req.role == "rider":
+            raise ValidationError("Direct registration as delivery partner ('rider') is disallowed. Please use the /riders/register flow.")
+        if req.role == "admin" and settings.ENVIRONMENT == "production":
+            raise ForbiddenError("Self-registration as administrator is not permitted in production.")
+
         # Check existing user
         if db.users.find_one({"email": email}):
             raise ConflictError(f"User with email '{email}' already exists.")

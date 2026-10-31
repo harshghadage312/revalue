@@ -1,4 +1,4 @@
-export type UserRole = 'buyer' | 'seller' | 'admin';
+export type UserRole = 'buyer' | 'seller' | 'admin' | 'rider';
 
 export interface User {
   id: string;
@@ -280,6 +280,8 @@ export interface OrderTrackingResponse {
   inspection_deadline?: string;
   inspection_hours_left?: number;
   delivery_otp_masked?: string;
+  delivery_otp?: string;
+  local_delivery_job?: DeliveryJob;
   cod_status?: string;
   shipping_address?: ShippingAddress;
   shipment_info?: {
@@ -428,3 +430,150 @@ export interface Notification {
   is_read: boolean;
   created_at: string;
 }
+
+// -------------------------------------------------------------
+// Hybrid Local Delivery & Rider Types
+// -------------------------------------------------------------
+
+export type RiderApplicationStatus = 'pending' | 'under_review' | 'approved' | 'rejected' | 'suspended';
+
+export type RiderVehicleType = 'motorcycle' | 'scooter' | 'electric_two_wheeler' | 'bicycle';
+
+export interface RiderEmergencyContact {
+  name: string;
+  relationship: string;
+  phone: string;
+}
+
+export interface RiderProfile {
+  id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  phone: string;
+  city: string;
+  service_pincodes: string[];
+  vehicle_type: RiderVehicleType;
+  vehicle_registration_number: string;
+  driving_license_number: string;
+  emergency_contact: RiderEmergencyContact;
+  application_status: RiderApplicationStatus;
+  rejection_reason?: string;
+  is_online: boolean;
+  current_location?: {
+    latitude: number;
+    longitude: number;
+    updated_at: string;
+  };
+  total_deliveries: number;
+  successful_deliveries: number;
+  rating: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export type DeliveryJobStatus =
+  | 'created'
+  | 'broadcast'
+  | 'accepted'
+  | 'heading_to_pickup'
+  | 'arrived_pickup'
+  | 'pickup_confirmed'
+  | 'in_transit'
+  | 'out_for_delivery'
+  | 'delivered'
+  | 'failed'
+  | 'cancelled';
+
+export interface DeliveryJobCompensation {
+  base_pay: number;
+  distance_bonus: number;
+  tip: number;
+  total_compensation: number;
+  payout_status: 'pending' | 'processing' | 'paid' | 'failed';
+  paid_at?: string;
+  payout_reference?: string;
+}
+
+export interface DeliveryJobLocation {
+  contact_name: string;
+  phone: string;
+  street: string;
+  city: string;
+  state: string;
+  pincode: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface DeliveryJobStatusHistory {
+  status: DeliveryJobStatus;
+  timestamp: string;
+  actor: string;
+  note?: string;
+}
+
+export interface DeliveryJob {
+  id: string;
+  order_id: string;
+  product_id: string;
+  product_title: string;
+  product_image?: string;
+  status: DeliveryJobStatus;
+  assigned_rider_id?: string;
+  assigned_rider_name?: string;
+  assigned_rider_phone?: string;
+  pickup_location: DeliveryJobLocation;
+  dropoff_location: DeliveryJobLocation;
+  compensation: DeliveryJobCompensation;
+  pickup_token?: string;
+  pickup_confirmed_at?: string;
+  pickup_notes?: string;
+  delivery_otp_verified_at?: string;
+  delivered_at?: string;
+  failure_reason?: string;
+  status_history: DeliveryJobStatusHistory[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ServiceArea {
+  id: string;
+  city: string;
+  state: string;
+  name: string;
+  pincodes: string[];
+  is_active: boolean;
+  max_package_weight_kg: number;
+  estimated_delivery_hours: number;
+  base_shipping_rate: number;
+  created_at: string;
+}
+
+export interface RiderEarningsSummary {
+  total_earned: number;
+  pending_payout: number;
+  paid_out: number;
+  completed_jobs_count: number;
+  jobs: Array<{
+    job_id: string;
+    order_id: string;
+    product_title?: string;
+    completed_at?: string;
+    compensation: DeliveryJobCompensation;
+  }>;
+}
+
+export interface RiderCompensationRecord {
+  job_id: string;
+  order_id: string;
+  rider_id: string;
+  rider_name: string;
+  rider_phone: string;
+  amount: number;
+  payout_status: 'pending' | 'processing' | 'paid' | 'failed';
+  paid_at?: string;
+  payout_reference?: string;
+  created_at: string;
+}
+

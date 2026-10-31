@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Search, Heart, Bell, PlusCircle,
   LogOut, ChevronDown, Package, Handshake,
-  Menu, X, ArrowRight, ShieldCheck, Sparkles, User as UserIcon
+  Menu, X, ArrowRight, ShieldCheck, Sparkles, User as UserIcon, Bike
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -254,6 +254,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <span>Seller Dashboard</span>
                     </button>
 
+                    {user?.role === 'rider' && (
+                      <button
+                        onClick={() => { onNavigate('rider-dashboard'); setShowUserMenu(false); }}
+                        className="w-full text-left px-3 py-2 text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100 flex items-center gap-2 font-bold"
+                      >
+                        <Bike className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Rider Dashboard</span>
+                      </button>
+                    )}
+
                     {user?.role === 'admin' && (
                       <button
                         onClick={() => { onNavigate('admin-dashboard'); setShowUserMenu(false); }}
@@ -261,6 +271,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                       >
                         <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
                         <span>Admin Dashboard</span>
+                      </button>
+                    )}
+
+                    {user?.role !== 'rider' && (
+                      <button
+                        onClick={() => { onNavigate('delivery-partner-signup'); setShowUserMenu(false); }}
+                        className="w-full text-left px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                      >
+                        <Bike className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Become a Delivery Partner</span>
                       </button>
                     )}
 
@@ -356,6 +376,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   Seller Dashboard
                 </button>
+                {user?.role === 'rider' ? (
+                  <button
+                    onClick={() => { onNavigate('rider-dashboard'); setMobileMenuOpen(false); }}
+                    className="w-full text-left px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 font-bold"
+                  >
+                    Rider Dashboard
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => { onNavigate('delivery-partner-signup'); setMobileMenuOpen(false); }}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-600 font-medium"
+                  >
+                    Become a Delivery Partner
+                  </button>
+                )}
               </>
             ) : (
               <div className="pt-2 border-t border-slate-100">

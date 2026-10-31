@@ -4,7 +4,8 @@ import {
   PriceEstimate, MobileCondition, RecommendationItem,
   Review, Notification, ShippingQuoteResponse,
   OrderTrackingResponse, InspectionChecklist, AdminShipmentItem,
-  AdminCodOrder
+  AdminCodOrder, RiderProfile, DeliveryJob, ServiceArea,
+  RiderEarningsSummary, RiderCompensationRecord
 } from '../types';
 
 /**
@@ -506,6 +507,223 @@ class ApiClient {
   async deleteAdminReview(reviewId: string): Promise<any> {
     return this.request<any>(`/admin/reviews/${reviewId}`, {
       method: 'DELETE',
+    });
+  }
+
+  // -------------------------------------------------------------
+  // Rider & Hybrid Delivery APIs
+  // -------------------------------------------------------------
+
+  async registerRider(data: {
+    name: string;
+    email: string;
+    password: string;
+    phone: string;
+    city: string;
+    service_pincodes: string[];
+    vehicle_type: string;
+    vehicle_registration_number: string;
+    driving_license_number: string;
+    emergency_contact: { name: string; relationship: string; phone: string };
+  }): Promise<AuthResponse & { rider_profile: RiderProfile }> {
+    const res = await this.request<AuthResponse & { rider_profile: RiderProfile }>('/riders/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (res.access_token) {
+      localStorage.setItem('revalue_token', res.access_token);
+      localStorage.setItem('revalue_user', JSON.stringify(res.user));
+    }
+    return res;
+  }
+
+  async getRiderProfile(): Promise<RiderProfile> {
+    return this.request<RiderProfile>('/riders/profile');
+  }
+
+  async updateRiderStatus(isOnline: boolean): Promise<RiderProfile> {
+    return this.request<RiderProfile>('/riders/status', {
+      method: 'POST',
+      body: JSON.stringify({ is_online: isOnline }),
+    });
+  }
+
+  async updateRiderLocation(latitude: number, longitude: number): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/riders/location', {
+      method: 'POST',
+      body: JSON.stringify({ latitude, longitude }),
+    });
+  }
+
+  async getRiderAvailableJobs(): Promise<DeliveryJob[]> {
+    return this.request<DeliveryJob[]>('/riders/jobs/available');
+  }
+
+  async getRiderActiveJob(): Promise<DeliveryJob | null> {
+    const res = await this.request<{ active_job: DeliveryJob | null }>('/riders/jobs/active');
+    return res.active_job;
+  }
+
+  async getRiderJobHistory(page = 1, size = 20): Promise<{ jobs: DeliveryJob[]; total: number }> {
+    return this.request<{ jobs: DeliveryJob[]; total: number }>(`/riders/jobs/history?page=${page}&size=${size}`);
+  }
+
+  async getRiderJobDetail(jobId: string): Promise<DeliveryJob> {
+    return this.request<DeliveryJob>(`/riders/jobs/${jobId}`);
+  }
+
+  async acceptRiderJob(jobId: string): Promise<DeliveryJob> {
+    return this.request<DeliveryJob>(`/riders/jobs/${jobId}/accept`, {
+      method: 'POST',
+    });
+  }
+
+  async confirmRiderPickup(
+    jobId: string,
+    payload: { pickup_token?: string; notes?: string; package_condition_ok?: boolean } = {}
+  ): Promise<DeliveryJob> {
+    return this.request<DeliveryJob>(`/riders/jobs/${jobId}/pickup`, {
+      method: 'POST',
+      body: JSON.stringify({
+        pickup_token: payload.pickup_token,
+        notes: payload.notes,
+        package_condition_ok: payload.package_condition_ok ?? true,
+      }),
+    });
+  }
+
+  async verifyRiderDeliveryOtp(jobId: string, deliveryOtp: string, notes?: string): Promise<DeliveryJob> {
+    return this.request<DeliveryJob>(`/riders/jobs/${jobId}/verify-delivery-otp`, {
+      method: 'POST',
+      body: JSON.stringify({
+        delivery_otp: deliveryOtp,
+        notes,
+      }),
+    });
+  }
+
+  async reportRiderJobFailure(jobId: string, reason: string, notes?: string): Promise<DeliveryJob> {
+    return this.request<DeliveryJob>(`/riders/jobs/${jobId}/report-failure`, {
+      method: 'POST',
+      body: JSON.stringify({
+        reason,
+        notes,
+      }),
+    });
+  }
+
+  async getRiderEarnings(): Promise<RiderEarningsSummary> {
+    return this.request<RiderEarningsSummary>('/riders/earnings');
+  }
+
+  // -------------------------------------------------------------
+  // Admin Delivery Operations Console APIs
+  // -------------------------------------------------------------
+
+  async listAdminRiders(status?: string): Promise<RiderProfile[]> {
+    const url = status ? `/admin/riders?status=${status}` : '/admin/riders';
+    return this.request<RiderProfile[]>(url);
+  }
+
+  async getAdminRider(riderId: string): Promise<RiderProfile> {
+    return this.request<RiderProfile>(`/admin/riders/${riderId}`);
+  }
+
+  async updateAdminRiderStatus(riderId: string, status: string, rejectionReason?: string): Promise<RiderProfile> {
+    return this.request<RiderProfile>(`/admin/riders/${riderId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        status,
+        rejection_reason: rejectionReason,
+      }),
+    });
+  }
+
+  async listAdminDispatchJobs(
+    status?: string,
+    riderId?: string,
+    page = 1,
+    size = 20
+  ): Promise<{ jobs: DeliveryJob[]; total: number }> {
+    let url = `/admin/dispatch/jobs?page=${page}&size=${size}`;
+    if (status) url += `&status=${status}`;
+    if (riderId) url += `&rider_id=${riderId}`;
+    return this.request<{ jobs: DeliveryJob[]; total: number }>(url);
+  }
+
+  async reassignAdminDispatchJob(jobId: string, riderId: string, reason?: string): Promise<DeliveryJob> {
+    return this.request<DeliveryJob>(`/admin/dispatch/jobs/${jobId}/reassign`, {
+      method: 'POST',
+      body: JSON.stringify({
+        rider_id: riderId,
+        reason,
+      }),
+    });
+  }
+
+  async cancelAdminDispatchJob(jobId: string, reason: string): Promise<DeliveryJob> {
+    return this.request<DeliveryJob>(`/admin/dispatch/jobs/${jobId}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async listAdminServiceAreas(isActive?: boolean): Promise<ServiceArea[]> {
+    const url = isActive !== undefined ? `/admin/service-areas?is_active=${isActive}` : '/admin/service-areas';
+    return this.request<ServiceArea[]>(url);
+  }
+
+  async createAdminServiceArea(data: {
+    city: string;
+    state: string;
+    name: string;
+    pincodes: string[];
+    is_active?: boolean;
+    max_package_weight_kg?: number;
+    estimated_delivery_hours?: number;
+    base_shipping_rate?: number;
+  }): Promise<ServiceArea> {
+    return this.request<ServiceArea>('/admin/service-areas', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAdminServiceArea(
+    areaId: string,
+    data: {
+      name?: string;
+      pincodes?: string[];
+      is_active?: boolean;
+      max_package_weight_kg?: number;
+      estimated_delivery_hours?: number;
+      base_shipping_rate?: number;
+    }
+  ): Promise<ServiceArea> {
+    return this.request<ServiceArea>(`/admin/service-areas/${areaId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAdminServiceArea(areaId: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/admin/service-areas/${areaId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async listAdminRiderCompensationLedger(status?: string): Promise<{ ledger: RiderCompensationRecord[]; total: number }> {
+    const url = status ? `/admin/riders/compensation/ledger?status=${status}` : '/admin/riders/compensation/ledger';
+    return this.request<{ ledger: RiderCompensationRecord[]; total: number }>(url);
+  }
+
+  async markAdminRiderCompensationPaid(jobId: string, payoutReference?: string): Promise<RiderCompensationRecord> {
+    return this.request<RiderCompensationRecord>(`/admin/riders/compensation/${jobId}/payout`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        payout_status: 'paid',
+        payout_reference: payoutReference,
+      }),
     });
   }
 }
