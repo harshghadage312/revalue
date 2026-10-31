@@ -67,6 +67,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   // Delivery filters
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
+  const [riderStatusFilter, setRiderStatusFilter] = useState('');
 
   // Dispute resolution modal state
   const [selectedDispute, setSelectedDispute] = useState<any | null>(null);
@@ -88,7 +89,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const loadAdminData = async () => {
     setLoading(true);
     try {
-      const [m, u, d, r, s, c, h, rList, djRes, saList, rLedgerRes] = await Promise.all([
+      const [m, u, d, r, s, c, h, rRes, djRes, saList, rLedgerRes] = await Promise.all([
         api.getAdminMetrics().catch(() => null),
         api.listAdminUsers().then(res => res.users).catch(() => []),
         api.listAdminDisputes().catch(() => []),
@@ -96,7 +97,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
         api.listAdminShipments(statusFilter || undefined, overdueOnly).then(res => res.shipments).catch(() => []),
         api.listAdminCodOrders().then(res => res.cod_orders).catch(() => []),
         api.getCourierHealth().catch(() => null),
-        api.listAdminRiders().catch(() => []),
+        api.listAdminRiders(riderStatusFilter || undefined).catch(() => ({ riders: [], total: 0 })),
         api.listAdminDispatchJobs().catch(() => ({ jobs: [], total: 0 })),
         api.listAdminServiceAreas().catch(() => []),
         api.listAdminRiderCompensationLedger().catch(() => ({ ledger: [], total: 0 })),
@@ -108,7 +109,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       setShipments(s);
       setCodOrders(c);
       setCourierHealth(h);
-      setRiders(rList || []);
+      setRiders(rRes?.riders || []);
       setDispatchJobs(djRes?.jobs || []);
       setServiceAreas(saList || []);
       setRiderLedger(rLedgerRes?.ledger || []);
@@ -119,22 +120,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
   useEffect(() => {
     loadAdminData();
-  }, [overdueOnly, statusFilter]);
+  }, [overdueOnly, statusFilter, riderStatusFilter]);
 
   // Hybrid Delivery Handlers
+  const handleDirectApproveRider = async (rider: RiderProfile) => {
+    const confirmed = window.confirm(
+      `Approve delivery partner "${rider.name}" (${rider.email})?\n\n` +
+      `Vehicle: ${rider.vehicle_type.replace(/_/g, ' ')} (${rider.vehicle_registration_number})\n` +
+      `City: ${rider.city} | PIN Codes: ${rider.service_pincodes.join(', ')}\n\n` +
+      `This will activate their account, grant them access to the Rider Dashboard, and allow them to go online and accept delivery jobs.`
+    );
+    if (!confirmed) return;
+
+    setUpdatingRiderStatus(true);
+    try {
+      await api.updateAdminRiderStatus(rider.id, 'approved');
+      alert(`Delivery partner "${rider.name}" has been approved successfully!`);
+      await loadAdminData();
+    } catch (err: any) {
+      alert(err?.message || 'Failed to approve rider.');
+    } finally {
+      setUpdatingRiderStatus(false);
+    }
+  };
+
+  const handleDirectRejectRider = async (rider: RiderProfile) => {
+    const reason = window.prompt(
+      `Enter rejection reason for "${rider.name}" (${rider.email}):`,
+      'Verification documents or vehicle details did not meet requirements.'
+    );
+    if (reason === null) return;
+    if (!reason.trim()) {
+      alert('A rejection reason is required to reject an application.');
+      return;
+    }
+
+    setUpdatingRiderStatus(true);
+    try {
+      await api.updateAdminRiderStatus(rider.id, 'rejected', reason.trim());
+      alert(`Application for "${rider.name}" has been rejected.`);
+      await loadAdminData();
+    } catch (err: any) {
+      alert(err?.message || 'Failed to reject rider.');
+    } finally {
+      setUpdatingRiderStatus(false);
+    }
+  };
+
   const handleUpdateRiderStatus = async (status: string) => {
     if (!selectedRider) return;
+    if ((status === 'rejected' || status === 'suspended') && !riderRejectionReason.trim()) {
+      alert('Please provide a reason for rejecting or suspending this application.');
+      return;
+    }
     setUpdatingRiderStatus(true);
     try {
       await api.updateAdminRiderStatus(
         selectedRider.id,
         status,
-        status === 'rejected' || status === 'suspended' ? riderRejectionReason : undefined
+        status === 'rejected' || status === 'suspended' ? riderRejectionReason.trim() : undefined
       );
       alert(`Rider application status updated to: ${status}`);
       setSelectedRider(null);
       setRiderRejectionReason('');
-      loadAdminData();
+      await loadAdminData();
     } catch (err: any) {
       alert(err?.message || 'Failed to update rider status.');
     } finally {
@@ -871,74 +920,239 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               <h3 className="text-base font-bold text-slate-900">Delivery Partner Fleet Governance</h3>
               <p className="text-xs text-slate-500">Review driver credentials, vehicle registrations, and service pincode coverage</p>
             </div>
-            <span className="text-xs text-slate-500 font-semibold">{riders.length} registered partners</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">{riders.length} registered partners</span>
+              <button
+                onClick={() => loadAdminData()}
+                disabled={loading}
+                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors"
+                title="Refresh delivery partners"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* Status Filter Tabs */}
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { id: '', label: 'All Partners' },
+              { id: 'pending', label: 'Pending Review' },
+              { id: 'approved', label: 'Approved Fleet' },
+              { id: 'rejected', label: 'Rejected' },
+              { id: 'suspended', label: 'Suspended' },
+            ].map((tab) => {
+              const count = tab.id
+                ? riders.filter((r) => r.application_status === tab.id).length
+                : riders.length;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setRiderStatusFilter(tab.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    riderStatusFilter === tab.id
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                      riderStatusFilter === tab.id
+                        ? 'bg-slate-700 text-white'
+                        : 'bg-white text-slate-700 shadow-2xs'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {riders.length === 0 ? (
-            <div className="py-12 text-center text-xs text-slate-400">
-              No delivery partner applications received yet.
+            <div className="py-12 text-center text-xs text-slate-400 space-y-2">
+              <Bike className="w-8 h-8 text-slate-300 mx-auto stroke-1" />
+              <p>No delivery partners matching this filter.</p>
+              {riderStatusFilter && (
+                <button
+                  onClick={() => setRiderStatusFilter('')}
+                  className="text-emerald-600 font-semibold underline text-xs mt-1"
+                >
+                  Clear filter and view all
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                    <th className="pb-3 px-3">Partner / Contact</th>
-                    <th className="pb-3 px-3">City & Pincodes</th>
-                    <th className="pb-3 px-3">Vehicle / License</th>
+                    <th className="pb-3 px-3">Applicant & Contact</th>
+                    <th className="pb-3 px-3">Vehicle Details</th>
+                    <th className="pb-3 px-3">Operating PIN Codes & City</th>
+                    <th className="pb-3 px-3">Submission Date</th>
                     <th className="pb-3 px-3">Status</th>
-                    <th className="pb-3 px-3">Live Fleet</th>
-                    <th className="pb-3 px-3 text-right">Action</th>
+                    <th className="pb-3 px-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {riders.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50/50">
+                    <tr key={r.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-3 px-3">
                         <span className="font-bold text-slate-900 block">{r.name}</span>
-                        <span className="text-slate-400 text-[11px] block">{r.email} • {r.phone}</span>
+                        <span className="text-slate-500 text-[11px] block">{r.email}</span>
+                        <span className="text-slate-400 text-[10px] block font-mono">{r.phone}</span>
                       </td>
-                      <td className="py-3 px-3 text-slate-600">
-                        <span className="font-semibold text-slate-800 block">{r.city}</span>
-                        <span className="text-[10px] text-slate-400 block font-mono">
-                          {r.service_pincodes.slice(0, 3).join(', ')}{r.service_pincodes.length > 3 ? '...' : ''}
-                        </span>
-                      </td>
+
                       <td className="py-3 px-3 text-slate-600">
                         <span className="capitalize font-semibold text-slate-800 block">
-                          {r.vehicle_type.replace(/_/g, ' ')}
+                          {r.vehicle_type?.replace(/_/g, ' ') || 'Motorcycle'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 block font-mono">
+                          Reg: {r.vehicle_registration_number || 'N/A'}
                         </span>
                         <span className="text-[10px] text-slate-400 block font-mono">
-                          {r.vehicle_registration_number} • DL: {r.driving_license_number}
+                          DL: {r.driving_license_number || 'Submitted'}
                         </span>
                       </td>
-                      <td className="py-3 px-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                          r.application_status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
-                          r.application_status === 'pending' || r.application_status === 'under_review' ? 'bg-amber-100 text-amber-800' :
-                          'bg-rose-100 text-rose-800'
-                        }`}>
-                          {r.application_status.replace(/_/g, ' ')}
+
+                      <td className="py-3 px-3 text-slate-600">
+                        <span className="font-semibold text-slate-800 block">{r.city}</span>
+                        <span className="text-[10px] text-slate-500 block font-mono">
+                          PINs: {r.service_pincodes && r.service_pincodes.length > 0 ? r.service_pincodes.join(', ') : 'None'}
                         </span>
                       </td>
-                      <td className="py-3 px-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          r.is_online ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${r.is_online ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                          {r.is_online ? 'Online' : 'Offline'}
-                        </span>
+
+                      <td className="py-3 px-3 text-slate-500 whitespace-nowrap">
+                        <div className="flex items-center gap-1 text-[11px]">
+                          <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>
+                            {r.created_at
+                              ? new Date(r.created_at).toLocaleDateString('en-IN', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                })
+                              : 'N/A'}
+                          </span>
+                        </div>
+                        {r.created_at && (
+                          <span className="text-[10px] text-slate-400 block pl-4">
+                            {new Date(r.created_at).toLocaleTimeString('en-IN', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        )}
                       </td>
-                      <td className="py-3 px-3 text-right">
-                        <button
-                          onClick={() => {
-                            setSelectedRider(r);
-                            setRiderRejectionReason(r.rejection_reason || '');
-                          }}
-                          className="px-3 py-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-xs transition-colors"
-                        >
-                          Manage
-                        </button>
+
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        <div className="space-y-1">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              r.application_status === 'approved'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : r.application_status === 'pending' || r.application_status === 'under_review'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}
+                          >
+                            {r.application_status.replace(/_/g, ' ')}
+                          </span>
+                          <div>
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                r.is_online ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  r.is_online ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                                }`}
+                              />
+                              {r.is_online ? 'Online' : 'Offline'}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-3 px-3 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {(r.application_status === 'pending' || r.application_status === 'under_review') && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={updatingRiderStatus}
+                                onClick={() => handleDirectApproveRider(r)}
+                                title="Approve application"
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs transition-colors flex items-center gap-1 shadow-xs disabled:opacity-50"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                <span>Approve</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={updatingRiderStatus}
+                                onClick={() => handleDirectRejectRider(r)}
+                                title="Reject application"
+                                className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold rounded-lg text-xs transition-colors flex items-center gap-1 disabled:opacity-50"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>Reject</span>
+                              </button>
+                            </>
+                          )}
+
+                          {r.application_status === 'approved' && (
+                            <button
+                              type="button"
+                              disabled={updatingRiderStatus}
+                              onClick={() => {
+                                const reason = window.prompt(
+                                  `Enter suspension reason for "${r.name}":`,
+                                  'Delivery performance review or policy compliance inquiry.'
+                                );
+                                if (reason !== null && reason.trim()) {
+                                  api.updateAdminRiderStatus(r.id, 'suspended', reason.trim())
+                                    .then(() => {
+                                      alert(`Rider "${r.name}" has been suspended.`);
+                                      loadAdminData();
+                                    })
+                                    .catch((err: any) => alert(err?.message || 'Failed to suspend rider.'));
+                                }
+                              }}
+                              title="Suspend partner"
+                              className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 font-semibold rounded-lg text-xs transition-colors disabled:opacity-50"
+                            >
+                              Suspend
+                            </button>
+                          )}
+
+                          {(r.application_status === 'rejected' || r.application_status === 'suspended') && (
+                            <button
+                              type="button"
+                              disabled={updatingRiderStatus}
+                              onClick={() => handleDirectApproveRider(r)}
+                              title="Re-approve partner"
+                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-semibold rounded-lg text-xs transition-colors flex items-center gap-1 disabled:opacity-50"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              <span>Re-approve</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedRider(r);
+                              setRiderRejectionReason(r.rejection_reason || '');
+                            }}
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition-colors"
+                          >
+                            Manage
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     # Database
     MONGODB_URI: str = "mongodb://localhost:27017"
     MONGODB_DB_NAME: str = "revalue_db"
-    MONGODB_TIMEOUT_MS: int = 2000
+    MONGODB_TIMEOUT_MS: int = 10000
 
     # Authentication & JWT
     JWT_SECRET_KEY: str = "revalue_local_development_secret_key_8f39b2e1a4c7d0e5f2a8b9c1d3e7f0a2"

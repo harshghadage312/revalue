@@ -620,21 +620,30 @@ class ApiClient {
   // Admin Delivery Operations Console APIs
   // -------------------------------------------------------------
 
-  async listAdminRiders(status?: string): Promise<RiderProfile[]> {
-    const url = status ? `/admin/riders?status=${status}` : '/admin/riders';
-    return this.request<RiderProfile[]>(url);
+  async listAdminRiders(
+    status?: string,
+    page = 1,
+    size = 100
+  ): Promise<{ riders: RiderProfile[]; total: number; page: number; size: number }> {
+    let url = `/admin/riders?page=${page}&size=${size}`;
+    if (status) url += `&status=${status}`;
+    return this.request<{ riders: RiderProfile[]; total: number; page: number; size: number }>(url);
   }
 
   async getAdminRider(riderId: string): Promise<RiderProfile> {
     return this.request<RiderProfile>(`/admin/riders/${riderId}`);
   }
 
-  async updateAdminRiderStatus(riderId: string, status: string, rejectionReason?: string): Promise<RiderProfile> {
-    return this.request<RiderProfile>(`/admin/riders/${riderId}/status`, {
+  async updateAdminRiderStatus(
+    riderId: string,
+    status: string,
+    rejectionReason?: string
+  ): Promise<{ message: string; status: string }> {
+    return this.request<{ message: string; status: string }>(`/admin/riders/${riderId}/status`, {
       method: 'PUT',
       body: JSON.stringify({
         status,
-        rejection_reason: rejectionReason,
+        reason: rejectionReason,
       }),
     });
   }
