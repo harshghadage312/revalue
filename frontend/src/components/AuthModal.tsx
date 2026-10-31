@@ -185,6 +185,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
         </form>
+
+        <div className="mt-4 pt-3 border-t border-slate-100 text-center">
+          <p className="text-[11px] text-slate-500">
+            Want to deliver smartphones as a fleet partner?
+          </p>
+          <a
+            href="#delivery-partner/signup"
+            onClick={onClose}
+            className="mt-0.5 inline-block text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline"
+          >
+            Apply to Become a Delivery Partner →
+          </a>
+        </div>
       </div>
     </div>
   );

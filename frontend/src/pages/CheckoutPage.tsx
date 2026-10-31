@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck, Lock, CheckCircle2, AlertCircle, ArrowLeft,
-  CreditCard, Truck, Check, Banknote, ShieldAlert, Clock, Sparkles
+  CreditCard, Truck, Check, Banknote, ShieldAlert, Clock, Sparkles, Bike, Zap
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Product, Order, ShippingRateQuote } from '../types';
@@ -330,29 +330,54 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     </div>
                   ) : quotes.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {quotes.map((q) => (
-                        <div
-                          key={q.courier_id}
-                          onClick={() => setSelectedQuote(q)}
-                          className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                            selectedQuote?.courier_id === q.courier_id
-                              ? 'border-emerald-600 bg-emerald-50/50 shadow-xs'
-                              : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="font-bold text-xs text-slate-900">{q.courier_name}</span>
-                            <span className="text-xs font-bold text-slate-900">₹{q.rate}</span>
+                      {quotes.map((q) => {
+                        const isLocal = q.provider === 'revalue_local' || q.courier_name.toLowerCase().includes('local');
+                        const isSelected = selectedQuote?.courier_id === q.courier_id;
+                        return (
+                          <div
+                            key={q.courier_id}
+                            onClick={() => setSelectedQuote(q)}
+                            className={`p-3.5 rounded-xl border cursor-pointer transition-all relative ${
+                              isSelected
+                                ? isLocal
+                                  ? 'border-emerald-600 bg-emerald-50/70 shadow-sm ring-1 ring-emerald-500'
+                                  : 'border-slate-800 bg-slate-50/70 shadow-xs'
+                                : isLocal
+                                ? 'border-emerald-200 bg-white hover:border-emerald-400'
+                                : 'border-slate-200 bg-white hover:border-slate-300'
+                            }`}
+                          >
+                            {isLocal && (
+                              <div className="inline-flex items-center gap-1 text-[9.5px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-emerald-600 text-white mb-2 shadow-2xs">
+                                <Zap className="w-2.5 h-2.5" />
+                                <span>ReValue Direct Fleet</span>
+                              </div>
+                            )}
+
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="font-bold text-xs text-slate-900">{q.courier_name}</span>
+                              <span className="text-xs font-bold text-slate-900">₹{q.rate}</span>
+                            </div>
+
+                            <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                              {isLocal ? (
+                                <Bike className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              ) : (
+                                <Truck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              )}
+                              <span>
+                                {isLocal
+                                  ? `Same-Day / Rush Delivery (${q.estimated_delivery_days} day)`
+                                  : `Estimated ${q.estimated_delivery_days} business days`}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 text-[10px] text-emerald-700 font-semibold bg-emerald-100/60 px-2 py-0.5 rounded w-fit">
+                              Doorstep OTP Verification
+                            </div>
                           </div>
-                          <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                            <Truck className="w-3.5 h-3.5 text-slate-400" />
-                            <span>Estimated {q.estimated_delivery_days} business days</span>
-                          </div>
-                          <div className="mt-2 text-[10px] text-emerald-700 font-semibold bg-emerald-100/60 px-2 py-0.5 rounded w-fit">
-                            Doorstep OTP Verification
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-xs text-slate-500 italic">Enter a 6-digit Indian PIN code to view live courier options.</div>

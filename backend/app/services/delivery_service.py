@@ -13,7 +13,7 @@ from app.schemas.delivery import (
 )
 from app.schemas.orders import OrderStatus, PayoutStatus
 from app.integrations.courier.manager import get_courier_provider
-from app.integrations.courier.base import ShipmentBookingRequest as CourierBookingReq, PickupScheduleRequest as CourierPickupReq
+from app.integrations.courier.base import ShipmentBookingRequest as CourierBookingReq, PickupScheduleRequest as CourierPickupReq, ShippingRateQuote
 from app.integrations.payments.manager import get_payment_provider
 from app.core.logging import logger
 
@@ -46,9 +46,10 @@ class DeliveryService:
                 pickup_pincode = "411001"
 
         declared_value = float(product.get("asking_price") or product.get("starting_bid") or 20000.0)
-        courier_provider = get_courier_provider()
 
-        result = courier_provider.check_serviceability(
+        # Hybrid Routing Engine: checks local delivery partner network + 3PL courier
+        from app.services.hybrid_routing_service import HybridRoutingService
+        hybrid_res = HybridRoutingService.get_hybrid_shipping_quotes(
             pickup_pincode=pickup_pincode,
             delivery_pincode=delivery_pincode,
             weight_kg=0.5,
@@ -56,37 +57,71 @@ class DeliveryService:
             declared_value=declared_value
         )
 
-        # Store quotes in cache collection with expiry for price-locking at checkout
         now = datetime.now(timezone.utc)
-        for q in result.quotes:
+        quotes_list = []
+        for q_data in hybrid_res.get("quotes", []):
+            exp = q_data.get("expires_at")
+            if isinstance(exp, str):
+                try:
+                    exp = datetime.fromisoformat(exp)
+                except Exception:
+                    exp = now + timedelta(minutes=30)
+            elif not isinstance(exp, datetime):
+                exp = now + timedelta(minutes=30)
+
+            est_date = q_data.get("estimated_delivery_date")
+            if isinstance(est_date, str):
+                try:
+                    est_date = datetime.fromisoformat(est_date)
+                except Exception:
+                    est_date = now + timedelta(days=int(q_data.get("estimated_delivery_days", 2)))
+
+            quote_obj = ShippingRateQuote(
+                courier_id=str(q_data["courier_id"]),
+                courier_name=str(q_data["courier_name"]),
+                rate=float(q_data["rate"]),
+                currency=str(q_data.get("currency", "INR")),
+                estimated_delivery_days=int(q_data.get("estimated_delivery_days", 2)),
+                estimated_delivery_date=est_date,
+                service_type=str(q_data.get("service_type", "surface")),
+                is_cod_available=bool(q_data.get("is_cod_available", True)),
+                cod_charges=float(q_data.get("cod_charges", 0.0)),
+                insurance_available=bool(q_data.get("insurance_available", True)),
+                insurance_fee=float(q_data.get("insurance_fee", 0.0)),
+                quote_id=str(q_data["quote_id"]),
+                expires_at=exp,
+                provider=str(q_data.get("provider", "courier"))
+            )
+            quotes_list.append(quote_obj)
+
             db.shipping_quotes.update_one(
-                {"quote_id": q.quote_id},
+                {"quote_id": quote_obj.quote_id},
                 {
                     "$set": {
-                        "quote_id": q.quote_id,
+                        "quote_id": quote_obj.quote_id,
                         "product_id": product_id,
                         "pickup_pincode": pickup_pincode,
                         "delivery_pincode": delivery_pincode,
-                        "courier_id": q.courier_id,
-                        "courier_name": q.courier_name,
-                        "rate": q.rate,
-                        "cod_charges": q.cod_charges,
-                        "insurance_fee": q.insurance_fee,
-                        "estimated_delivery_days": q.estimated_delivery_days,
-                        "provider": q.provider,
+                        "courier_id": quote_obj.courier_id,
+                        "courier_name": quote_obj.courier_name,
+                        "rate": quote_obj.rate,
+                        "cod_charges": quote_obj.cod_charges,
+                        "insurance_fee": quote_obj.insurance_fee,
+                        "estimated_delivery_days": quote_obj.estimated_delivery_days,
+                        "provider": quote_obj.provider,
                         "created_at": now,
-                        "expires_at": q.expires_at,
+                        "expires_at": quote_obj.expires_at,
                     }
                 },
                 upsert=True
             )
 
         return ShippingQuoteResponse(
-            is_serviceable=result.is_serviceable,
-            pickup_pincode=result.pickup_pincode,
-            delivery_pincode=result.delivery_pincode,
-            quotes=result.quotes,
-            message=result.message
+            is_serviceable=len(quotes_list) > 0,
+            pickup_pincode=pickup_pincode,
+            delivery_pincode=delivery_pincode,
+            quotes=quotes_list,
+            message=hybrid_res.get("routing_summary")
         )
 
     @staticmethod
@@ -131,6 +166,63 @@ class DeliveryService:
 
         is_cod = (order.get("payment_method") == "cod")
         cod_amount = float(order.get("transaction_price", 0.0)) if is_cod else 0.0
+
+        target_courier_id = req.courier_id or order.get("courier_id")
+        if target_courier_id == "revalue_local_direct":
+            from app.services.dispatch_service import DispatchService
+            local_job = DispatchService.create_local_delivery_job(order_id)
+            suffix = order_id[-8:].upper()
+            awb_code = f"AWB-REVLOC-{suffix}"
+            courier_name = "ReValue Local Direct (Verified Partner)"
+            token_suffix = order_id[-6:].upper()
+            pickup_token = f"LOC-PICK-{token_suffix}"
+            pickup_date = req.pickup_date or (now + timedelta(days=1))
+            
+            shipment_data = {
+                "shipment_id": local_job["id"],
+                "awb_code": awb_code,
+                "courier_name": courier_name,
+                "courier_id": "revalue_local_direct",
+                "label_url": f"/api/v1/orders/{order_id}/shipment/label",
+                "manifest_url": None,
+                "pickup_token": pickup_token,
+                "pickup_scheduled_date": pickup_date,
+                "is_courier_verified": False,
+                "is_local_delivery": True,
+                "booked_at": now,
+                "notes": "Assigned to ReValue local delivery partner network."
+            }
+            db.orders.update_one(
+                {"order_id": order_id},
+                {
+                    "$set": {
+                        "status": "seller_dispatch_pending",
+                        "shipment_info": shipment_data,
+                        "courier_id": "revalue_local_direct",
+                        "courier_name": courier_name,
+                        "updated_at": now
+                    },
+                    "$push": {
+                        "status_history": {
+                            "status": "seller_dispatch_pending",
+                            "timestamp": now,
+                            "updated_by": f"seller_{seller_id}",
+                            "note": f"Order booked for ReValue Local Partner dispatch (AWB: {awb_code}). Queued for partner pickup."
+                        }
+                    }
+                }
+            )
+            return {
+                "message": f"Local delivery partner dispatch booked for order {order_id}.",
+                "order_id": order_id,
+                "awb_code": awb_code,
+                "shipment_id": local_job["id"],
+                "courier_name": courier_name,
+                "label_url": f"/api/v1/orders/{order_id}/shipment/label",
+                "pickup_token": pickup_token,
+                "status": "seller_dispatch_pending",
+                "is_local_delivery": True
+            }
 
         courier_req = CourierBookingReq(
             order_id=order_id,
@@ -323,7 +415,19 @@ class DeliveryService:
                 dl = dl.replace(tzinfo=timezone.utc)
             inspection_hours_left = max(0.0, round((dl - now).total_seconds() / 3600.0, 1))
 
+        local_job = db.delivery_jobs.find_one({"order_id": order_id})
+        local_job_clean = None
+        if local_job:
+            local_job_clean = dict(local_job)
+            local_job_clean.pop("_id", None)
+
+        buyer_otp_plain = None
+        if user_id == order.get("buyer_id") and order.get("delivery_otp"):
+            buyer_otp_plain = order["delivery_otp"].get("otp")
+
         return {
+            "local_delivery_job": local_job_clean,
+            "buyer_delivery_otp": buyer_otp_plain,
             "order_id": order["order_id"],
             "product_id": order.get("product_id"),
             "product_title": order.get("product_title", "Smartphone"),
@@ -413,6 +517,15 @@ class DeliveryService:
         shipment_info = order.get("shipment_info")
         if not shipment_info or not shipment_info.get("awb_code"):
             raise NotFoundError("No shipment has been booked for this order yet.")
+
+        if shipment_info.get("is_local_delivery"):
+            return {
+                "order_id": order_id,
+                "awb_code": shipment_info["awb_code"],
+                "courier_name": shipment_info.get("courier_name", "ReValue Local Direct (Verified Partner)"),
+                "label_url": shipment_info.get("label_url", f"/api/v1/orders/{order_id}/shipment/label"),
+                "is_local_delivery": True,
+            }
 
         courier_provider = get_courier_provider()
         label_res = courier_provider.generate_label(shipment_info["awb_code"])

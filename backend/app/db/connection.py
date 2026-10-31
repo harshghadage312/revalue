@@ -75,9 +75,15 @@ class MemoryCollection:
                         break
             else:
                 doc_val = doc.get(k)
-            if isinstance(v, dict):
+            if isinstance(doc_val, list) and not isinstance(v, (list, dict)):
+                if v not in doc_val:
+                    return False
+            elif isinstance(v, dict):
                 for op, op_val in v.items():
-                    if op == "$eq" and doc_val != op_val:
+                    if op == "$all":
+                        if not isinstance(doc_val, list) or not all(elem in doc_val for elem in op_val):
+                            return False
+                    elif op == "$eq" and doc_val != op_val:
                         return False
                     elif op == "$ne" and doc_val == op_val:
                         return False
@@ -100,6 +106,30 @@ class MemoryCollection:
             elif doc_val != v:
                 return False
         return True
+
+    def find_one_and_update(self, filter: Dict[str, Any], update: Dict[str, Any], return_document: Any = True, upsert: bool = False):
+        with self._lock:
+            target = None
+            for doc in self._docs.values():
+                if self._matches_filter(doc, filter):
+                    target = doc
+                    break
+            if not target:
+                if upsert:
+                    new_doc = copy.deepcopy(filter)
+                    if "$set" in update:
+                        for key, val in update["$set"].items():
+                            new_doc[key] = copy.deepcopy(val)
+                    self.insert_one(new_doc)
+                    return copy.deepcopy(new_doc)
+                return None
+
+            old_copy = copy.deepcopy(target)
+            self.update_one({"_id": target["_id"]}, update)
+            updated_doc = self._docs.get(target["_id"])
+            if return_document:
+                return copy.deepcopy(updated_doc)
+            return old_copy
 
     def find_one(self, query: Optional[Dict[str, Any]] = None, projection: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         query = query or {}
@@ -207,6 +237,13 @@ class MemoryCollection:
                         if isinstance(val, dict) and "$each" in val:
                             target[k].extend(copy.deepcopy(val["$each"]))
                         else:
+                            target[k].append(copy.deepcopy(val))
+                    res.modified_count = 1
+                if "$addToSet" in update:
+                    for k, val in update["$addToSet"].items():
+                        if k not in target or not isinstance(target[k], list):
+                            target[k] = []
+                        if val not in target[k]:
                             target[k].append(copy.deepcopy(val))
                     res.modified_count = 1
             elif upsert:

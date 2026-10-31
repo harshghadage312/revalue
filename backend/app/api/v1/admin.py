@@ -5,10 +5,13 @@ from pydantic import BaseModel
 from app.db.connection import get_db
 from app.core.config import settings
 from app.services.auth_service import require_role
-from app.core.errors import NotFoundError, ValidationError
+from app.core.errors import NotFoundError, ValidationError, ForbiddenError
 from app.schemas.products import ProductStatus
 from app.schemas.orders import OrderStatus
+from app.schemas.riders import RiderStatusAdminUpdateRequest, ServiceAreaCreateRequest
 from app.services.delivery_service import DeliveryService
+from app.services.dispatch_service import DispatchService
+from app.services.rider_service import RiderService
 from app.integrations.courier.manager import get_courier_provider
 from app.core.logging import logger
 
@@ -28,6 +31,20 @@ class CodReconcileRequest(BaseModel):
     notes: Optional[str] = None
 
 
+class JobReassignRequest(BaseModel):
+    new_rider_id: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class JobCancelRequest(BaseModel):
+    reason: str
+
+
+class RiderPayoutStatusUpdateRequest(BaseModel):
+    payout_status: str  # "eligible", "processing", "paid", "on_hold"
+    payout_reference: Optional[str] = None
+
+
 @router.get("/metrics")
 def get_operational_metrics(admin: Dict[str, Any] = Depends(require_role("admin"))):
     """Returns real operational marketplace metrics calculated from database collections."""
@@ -44,6 +61,12 @@ def get_operational_metrics(admin: Dict[str, Any] = Depends(require_role("admin"
 
     open_disputes = db.disputes.count_documents({"status": "open"})
     reported_reviews = db.reviews.count_documents({"is_reported": True})
+    
+    # Delivery partner metrics
+    total_riders = db.rider_profiles.count_documents({})
+    approved_riders = db.rider_profiles.count_documents({"application_status": "approved"})
+    online_riders = db.rider_profiles.count_documents({"is_online": True})
+    total_local_jobs = db.delivery_jobs.count_documents({})
 
     return {
         "total_users": total_users,
@@ -54,6 +77,10 @@ def get_operational_metrics(admin: Dict[str, Any] = Depends(require_role("admin"
         "marketplace_gmv_inr": round(gmv, 2),
         "open_disputes": open_disputes,
         "reported_reviews": reported_reviews,
+        "total_riders": total_riders,
+        "approved_riders": approved_riders,
+        "online_riders": online_riders,
+        "total_local_jobs": total_local_jobs,
     }
 
 
@@ -100,7 +127,6 @@ def list_disputes(admin: Dict[str, Any] = Depends(require_role("admin"))):
     cursor = db.disputes.find({}).sort("created_at", -1)
     disputes = []
     for d in cursor:
-        # Strip internal MongoDB _id to prevent JSON serialization issues
         d_copy = dict(d)
         if "_id" in d_copy:
             d_copy["_id"] = str(d_copy["_id"])
@@ -261,6 +287,240 @@ def get_courier_health(admin: Dict[str, Any] = Depends(require_role("admin"))):
         "inspection_window_hours": settings.INSPECTION_WINDOW_HOURS,
     }
 
+
+# =========================================================================
+# DELIVERY PARTNER (RIDER) MANAGEMENT & AUDIT
+# =========================================================================
+
+@router.get("/riders")
+def list_riders(
+    status: Optional[str] = Query(None),
+    city: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    admin: Dict[str, Any] = Depends(require_role("admin"))
+):
+    """
+    Lists delivery partner applications with status filtering (pending, approved, suspended, etc.).
+    """
+    db = get_db()
+    query: Dict[str, Any] = {}
+    if status:
+        query["application_status"] = status
+    if city:
+        query["city"] = {"$regex": city.strip(), "$options": "i"}
+
+    skip = (page - 1) * size
+    total = db.rider_profiles.count_documents(query)
+    cursor = db.rider_profiles.find(query).skip(skip).limit(size).sort("created_at", -1)
+
+    riders = []
+    for r in cursor:
+        r_copy = dict(r)
+        if "_id" in r_copy:
+            r_copy["_id"] = str(r_copy["_id"])
+        # Ensure private license hash is not exposed
+        r_copy.pop("driving_license_hash", None)
+        riders.append(r_copy)
+
+    return {"riders": riders, "total": total, "page": page, "size": size}
+
+
+@router.get("/riders/{rider_id}")
+def get_rider_details(
+    rider_id: str,
+    admin: Dict[str, Any] = Depends(require_role("admin"))
+):
+    """
+    Retrieves complete profile, verification documents, and metrics for a delivery partner.
+    """
+    db = get_db()
+    rider = db.rider_profiles.find_one({"id": rider_id})
+    if not rider:
+        raise NotFoundError("Delivery partner not found.")
+
+    r_copy = dict(rider)
+    r_copy.pop("_id", None)
+    r_copy.pop("driving_license_hash", None)
+
+    # Attach recent jobs
+    recent_jobs = list(db.delivery_jobs.find({"assigned_rider_id": rider_id}).sort("updated_at", -1).limit(10))
+    for j in recent_jobs:
+        j.pop("_id", None)
+    r_copy["recent_jobs"] = recent_jobs
+
+    return r_copy
+
+
+@router.put("/riders/{rider_id}/status")
+def update_rider_application_status(
+    rider_id: str,
+    req: RiderStatusAdminUpdateRequest,
+    admin: Dict[str, Any] = Depends(require_role("admin"))
+):
+    """
+    Approves, rejects, or suspends a delivery partner account with audit logging.
+    """
+    db = get_db()
+    rider = db.rider_profiles.find_one({"id": rider_id})
+    if not rider:
+        raise NotFoundError("Delivery partner not found.")
+
+    now = datetime.now(timezone.utc)
+    update_data: Dict[str, Any] = {
+        "application_status": req.status,
+        "updated_at": now
+    }
+
+    if req.status == "approved":
+        update_data["approved_at"] = now
+        update_data["rejection_reason"] = None
+        update_data["suspension_reason"] = None
+    elif req.status == "rejected":
+        update_data["rejection_reason"] = req.reason or "Application did not meet operational criteria."
+        update_data["is_online"] = False
+    elif req.status == "suspended":
+        update_data["suspension_reason"] = req.reason or "Account suspended by administrator."
+        update_data["is_online"] = False
+
+    db.rider_profiles.update_one({"id": rider_id}, {"$set": update_data})
+
+    # Record security audit log
+    db.audit_logs.insert_one({
+        "event": "rider_status_changed",
+        "rider_id": rider_id,
+        "old_status": rider.get("application_status"),
+        "new_status": req.status,
+        "reason": req.reason,
+        "admin_id": admin["id"],
+        "timestamp": now
+    })
+
+    logger.info(f"Admin {admin['id']} updated rider {rider_id} status: {rider.get('application_status')} -> {req.status}")
+    return {"message": f"Delivery partner status updated to '{req.status}'.", "status": req.status}
+
+
+# =========================================================================
+# DISPATCH & LOCAL JOB OPERATIONS
+# =========================================================================
+
+@router.get("/dispatch/jobs")
+def list_local_dispatch_jobs(
+    status: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    admin: Dict[str, Any] = Depends(require_role("admin"))
+):
+    """
+    Monitors all local partner delivery jobs, active dispatches, and exceptions.
+    """
+    return DispatchService.list_admin_jobs(status_filter=status, page=page, size=size)
+
+
+@router.post("/dispatch/jobs/{job_id}/reassign")
+def reassign_local_job(
+    job_id: str,
+    req: JobReassignRequest,
+    admin: Dict[str, Any] = Depends(require_role("admin"))
+):
+    """
+    Reassigns a delivery job to a specific rider or resets it to the open searching pool.
+    """
+    return DispatchService.reassign_job(job_id, new_rider_id=req.new_rider_id, reason=req.reason)
+
+
+@router.post("/dispatch/jobs/{job_id}/cancel")
+def cancel_local_job(
+    job_id: str,
+    req: JobCancelRequest,
+    admin: Dict[str, Any] = Depends(require_role("admin"))
+):
+    """
+    Cancels a local delivery job with recorded administrative justification.
+    """
+    return DispatchService.cancel_job(job_id, reason=req.reason)
+
+
+# =========================================================================
+# SERVICE AREA CONFIGURATION
+# =========================================================================
+
+@router.get("/service-areas")
+def list_service_areas(admin: Dict[str, Any] = Depends(require_role("admin"))):
+    """
+    Retrieves configured local delivery service areas and serviceable PIN codes.
+    """
+    return DispatchService.list_service_areas()
+
+
+@router.post("/service-areas", status_code=status.HTTP_201_CREATED)
+def create_service_area(
+    req: ServiceAreaCreateRequest,
+    admin: Dict[str, Any] = Depends(require_role("admin"))
+):
+    """
+    Registers a new serviceable city/cluster for local delivery partner dispatch.
+    """
+    return DispatchService.create_service_area(req)
+
+
+@router.put("/service-areas/{area_id}")
+def update_service_area(
+    area_id: str,
+    updates: Dict[str, Any],
+    admin: Dict[str, Any] = Depends(require_role("admin"))
+):
+    """
+    Updates service area parameters, base fares, or active PIN codes.
+    """
+    return DispatchService.update_service_area(area_id, updates)
+
+
+@router.delete("/service-areas/{area_id}")
+def delete_service_area(
+    area_id: str,
+    admin: Dict[str, Any] = Depends(require_role("admin"))
+):
+    """
+    Removes a service area from active local delivery dispatching.
+    """
+    return DispatchService.delete_service_area(area_id)
+
+
+# =========================================================================
+# RIDER COMPENSATION & PAYOUT RECONCILIATION
+# =========================================================================
+
+@router.get("/riders/compensation/ledger")
+def get_compensation_ledger(
+    payout_status: Optional[str] = Query(None),
+    admin: Dict[str, Any] = Depends(require_role("admin"))
+):
+    """
+    Audits completed delivery partner earnings and settlement payout statuses.
+    """
+    return DispatchService.list_rider_compensation_ledger(payout_status=payout_status)
+
+
+@router.put("/riders/compensation/{job_id}/payout")
+def update_payout_status(
+    job_id: str,
+    req: RiderPayoutStatusUpdateRequest,
+    admin: Dict[str, Any] = Depends(require_role("admin"))
+):
+    """
+    Reconciles partner delivery payout (marks processing, paid, or on_hold).
+    """
+    return DispatchService.update_payout_status(
+        job_id=job_id,
+        new_status=req.payout_status,
+        payout_ref=req.payout_reference
+    )
+
+
+# =========================================================================
+# REVIEWS MODERATION
+# =========================================================================
 
 @router.get("/reported-reviews")
 def list_reported_reviews(admin: Dict[str, Any] = Depends(require_role("admin"))):
